@@ -1,0 +1,99 @@
+[tool.ruff]
+# Same as Black.
+line-length = 88
+# Target Python 3.8
+target-version = "py38"
+
+exclude = [
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".tox",
+    ".venv",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "migrations",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+# Enable similar rules to the current flake8 configuration
+extend-select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # Pyflakes
+    "B",    # flake8-bugbear
+    "C",    # mccabe complexity
+    "N",    # pep8-naming
+    "D",    # pydocstyle
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
+]
+
+# Similar ignore patterns to .flake8 config
+ignore = [
+    # Whitespace before ':' (conflicts with formatter)
+    "E203",
+    # Line too long (handled by formatter)
+    "E501",
+    # Missing docstring in public module
+    "D100",
+    # Missing docstring in public class
+    "D101",
+    # Missing docstring in public method
+    "D102",
+    # Missing docstring in public function
+    "D103",
+    # Missing docstring in public package
+    "D104",
+    # Missing docstring in magic method
+    "D105",
+    # Missing docstring in public nested class
+    "D106",
+    # Missing docstring in __init__
+    "D107",
+]
+
+# Per-file ignores similar to .flake8
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Ignore unused imports in __init__.py files
+"EditEngine/__init__.py" = ["N999"]  # Allow non-standard module name for project root
+"*/management/commands/*" = ["T201"]  # Allow print statements in Django management commands
+"test_*.py" = ["D"]  # Ignore missing docstrings in tests
+"tests.py" = ["D"]
+"*/tests/*" = ["D"]
+
+# Configure pydocstyle to use Google convention
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+# Configure isort behavior to match previous setup
+[tool.ruff.lint.isort]
+known-first-party = ["edit"]
+known-third-party = ["django"]
+
+# Configure flake8-tidy-imports to ban all relative imports
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+# Use double quotes for strings (Black compatible)
+quote-style = "double"
+# Indent with spaces
+indent-style = "space"
+# Respect magic trailing commas (Black compatible)
+skip-magic-trailing-comma = false
+# Auto-detect line endings
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.8"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+exclude = ["migrations", "venv", ".venv", "__pycache__"]

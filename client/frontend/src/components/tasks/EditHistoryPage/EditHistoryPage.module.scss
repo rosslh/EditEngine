@@ -1,0 +1,39 @@
+@use "../../../styles/semantic-tokens.scss";
+
+.editHistoryPage {
+  padding: var(--spacing-24) var(--spacing-32);
+  max-width: 1200px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  margin-bottom: var(--spacing-40);
+  padding-bottom: var(--spacing-24);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.titleSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-20);
+
+}
+
+
+.description {
+  color: var(--text-color-secondary);
+  font-size: var(--font-size-medium);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 600px;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}

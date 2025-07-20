@@ -1,0 +1,36 @@
+[run]
+source = EditEngine, edit
+omit =
+    */migrations/*
+    */venv/*
+    */.venv/*
+    */env/*
+    */settings/*
+    manage.py
+    */asgi.py
+    */wsgi.py
+    */__pycache__/*
+    */tests/*
+    test_*.py
+    *_test.py
+    **/test*.py
+    conftest.py
+    setup.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstract
+    pass
+
+[html]
+directory = htmlcov
+title = EditEngine Coverage Report
+
+[xml]
+output = coverage.xml
