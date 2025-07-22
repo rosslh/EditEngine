@@ -89,7 +89,6 @@ class TestEditViewDRF(TestCase):
         # Verify the task_id is a valid UUID (EditTask ID, not Celery task ID)
         uuid.UUID(response.data["task_id"])
 
-
     def test_post_valid_copyedit_mode_article_title(self):
         self.mock_delay.return_value = MockAsyncResult("mock-celery-task-id-4")
         request_data = {
@@ -108,7 +107,6 @@ class TestEditViewDRF(TestCase):
         # Verify the task_id is a valid UUID (EditTask ID, not Celery task ID)
         uuid.UUID(response.data["task_id"])
 
-
     def test_post_invalid_editing_mode(self):
         """Test POST request with invalid editing mode."""
         request_data = {"article_title": "Apollo", "section_title": "History"}
@@ -116,7 +114,10 @@ class TestEditViewDRF(TestCase):
             "/api/edit/invalid_mode", data=request_data, format="json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data["error"], "Invalid editing mode 'invalid_mode'. Must be 'brevity' or 'copyedit'.")
+        self.assertEqual(
+            response.data["error"],
+            "Invalid editing mode 'invalid_mode'. Must be 'brevity' or 'copyedit'.",
+        )
 
     def test_post_no_input_provided(self):
         """Test POST request with no input provided."""
@@ -127,7 +128,6 @@ class TestEditViewDRF(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
 
-
     def test_post_empty_article_title(self):
         """Test POST request with empty article_title."""
         request_data = {"article_title": "", "section_title": "History"}
@@ -136,7 +136,6 @@ class TestEditViewDRF(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", response.data)
-
 
     def test_post_missing_api_key(self):
         """Test POST request when no API key headers are provided."""
@@ -162,7 +161,6 @@ class TestEditViewDRF(TestCase):
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertIn("task_id", response.data)
         self.assertIn("status_url", response.data)
-
 
     def test_post_wikipedia_article_not_found(self):
         request_data = {
@@ -357,7 +355,8 @@ class TestSectionHeadingsViewDRF(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(
-            response.data["error"], "The requested article or section could not be found. Please check the article title and section title."
+            response.data["error"],
+            "The requested article or section could not be found. Please check the article title and section title.",
         )
 
     @patch("api.views.edit_views.SectionHeadingsService")
@@ -380,7 +379,10 @@ class TestSectionHeadingsViewDRF(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
-        self.assertEqual(response.data["error"], "Request rate limit exceeded. Please wait before trying again.")
+        self.assertEqual(
+            response.data["error"],
+            "Request rate limit exceeded. Please wait before trying again.",
+        )
 
     @patch("api.views.edit_views.SectionHeadingsService")
     def test_post_unexpected_error(self, mock_service_class):
@@ -400,7 +402,9 @@ class TestSectionHeadingsViewDRF(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_422_UNPROCESSABLE_ENTITY)
-        self.assertEqual(response.data["error"], "An unexpected error occurred. Please try again.")
+        self.assertEqual(
+            response.data["error"], "An unexpected error occurred. Please try again."
+        )
 
 
 class TestResultViewDRF(TestCase):
@@ -433,7 +437,9 @@ class TestResultViewDRF(TestCase):
         assert response.status_code == 500
         assert response.data["status"] == "FAILURE"
         assert response.data["task_id"] == self.task_id
-        assert "An unexpected error occurred. Please try again." in response.data["error"]
+        assert (
+            "An unexpected error occurred. Please try again." in response.data["error"]
+        )
 
     def test_result_success(self):
         self.edit_task.status = "SUCCESS"
@@ -455,7 +461,9 @@ class TestResultViewDRF(TestCase):
         assert response.status_code == 500
         assert response.data["status"] == "FAILURE"
         assert response.data["task_id"] == self.task_id
-        assert response.data["error"] == "An unexpected error occurred. Please try again."
+        assert (
+            response.data["error"] == "An unexpected error occurred. Please try again."
+        )
 
     def test_result_other_state(self):
         self.edit_task.status = "STARTED"
@@ -493,8 +501,6 @@ class TestResultViewDRF(TestCase):
         assert response.data["status"] == "PENDING"
         assert response.data["task_id"] == self.task_id
         assert response.data["progress"] == {"processed": 5, "total": 10}
-
-
 
 
 class TestEditTaskListViewDRF(TestCase):
@@ -900,7 +906,9 @@ class TestResultViewErrorSanitization(TestCase):
         view = ResultView()
 
         # Mock ErrorSanitizer to raise an exception
-        with patch('api.views.edit_views.ErrorSanitizer.sanitize_exception') as mock_sanitizer:
+        with patch(
+            "api.views.edit_views.ErrorSanitizer.sanitize_exception"
+        ) as mock_sanitizer:
             mock_sanitizer.side_effect = Exception("Sanitization failed")
 
             result = view._sanitize_error_message("Some error message")

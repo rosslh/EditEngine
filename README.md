@@ -1,8 +1,18 @@
-# EditEngine
+<p align="center">
+    <img src="https://raw.githubusercontent.com/rosslh/EditEngine/main/icon.png" height="50px" width="50px" alt="EditEngine icon">
+</p>
 
-EditEngine is a copyediting assistant designed for experienced Wikipedia editors to accelerate mechanical grammar and clarity improvements while maintaining complete editorial control. The tool addresses Wikipedia's growing copyedit backlog by streamlining routine fixes that consume valuable editor time.
+<h1 align="center">EditEngine</h1>
 
-**Documentation:** For architecture technical architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md). For development setup and contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+<p align="center">
+  EditEngine is a copyediting assistant designed for experienced Wikipedia editors to accelerate mechanical grammar and clarity improvements while maintaining complete editorial control. The tool addresses Wikipedia's growing copyedit backlog by streamlining routine fixes that consume valuable editor time.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/github/check-runs/rosslh/EditEngine/main?style=flat&label=Checks" alt="GitHub branch check runs">
+  <!-- <img src="https://img.shields.io/uptimerobot/status/m792388109-4c544ded2b0e440130ddd401?up_message=online&style=flat&label=Status" alt="Uptime Robot status">
+  <img src="https://img.shields.io/uptimerobot/ratio/m792388109-4c544ded2b0e440130ddd401?style=flat&label=Uptime%20(1mo)" alt="Uptime Robot ratio (30 days)"> -->
+</p>
 
 ## Core Principles
 

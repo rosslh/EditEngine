@@ -41,8 +41,8 @@ NON_PROSE_PREFIXES = {
     "<table",
     "<span",
     "{{",  # Templates
-    "*",   # List items
-    "#",   # Numbered list items
+    "*",  # List items
+    "#",  # Numbered list items
     "<ref>",  # Citations only
 }
 

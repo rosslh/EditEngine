@@ -45,10 +45,6 @@ function EditTaskList({ taskList, filters, onFilterChange, onPageChange }: EditT
   const { results, pagination } = taskList
   const hasActiveFilters = Boolean(statusFilter || modeFilter)
 
-  if (results.length === 0) {
-    return <TaskHistoryEmptyState hasFilters={hasActiveFilters} />
-  }
-
   return (
     <div className={styles.editTaskList}>
       {/* Filters */}
@@ -93,19 +89,26 @@ function EditTaskList({ taskList, filters, onFilterChange, onPageChange }: EditT
         )}
       </div>
 
-      {/* Results count */}
-      <div className={styles.resultsInfo}>
-        <span>
-          Showing {results.length} of {pagination.total_count} tasks
-        </span>
-      </div>
+      {/* Show empty state if no results */}
+      {results.length === 0 ? (
+        <TaskHistoryEmptyState hasFilters={hasActiveFilters} />
+      ) : (
+        <>
+          {/* Results count */}
+          <div className={styles.resultsInfo}>
+            <span>
+              Showing {results.length} of {pagination.total_count} tasks
+            </span>
+          </div>
 
-      {/* Task cards */}
-      <div className={styles.taskCards}>
-        {results.map((task) => (
-          <EditTaskCard key={task.id} task={task} />
-        ))}
-      </div>
+          {/* Task cards */}
+          <div className={styles.taskCards}>
+            {results.map((task) => (
+              <EditTaskCard key={task.id} task={task} />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Pagination */}
       {pagination.total_pages > 1 && (

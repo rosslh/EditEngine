@@ -17,6 +17,17 @@
     padding: 0 32px;
     display: flex;
     align-items: center;
+    gap: 48px;
+  }
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    
+    img {
+      height: 32px;
+    }
   }
 
   &__tabs {

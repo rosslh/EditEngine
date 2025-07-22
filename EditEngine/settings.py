@@ -40,9 +40,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
 
 if not SECRET_KEY:
-    raise ImproperlyConfigured(
-        "The SECRET_KEY environment variable must not be empty."
-    )
+    raise ImproperlyConfigured("The SECRET_KEY environment variable must not be empty.")
 
 ALLOWED_HOSTS = [
     "editengine.toolforge.org",

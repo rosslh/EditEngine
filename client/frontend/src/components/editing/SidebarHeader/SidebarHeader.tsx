@@ -1,7 +1,5 @@
-import SettingsIcon from "~icons/custom/settings";
 import CheckCircleIcon from "~icons/custom/check-circle";
 import Icon from "../../shared/ui/Icon/Icon";
-import IconButton from "../../shared/ui/IconButton/IconButton";
 import styles from "./SidebarHeader.module.scss";
 import { type ApiKeyConfig } from "../../../utils/api";
 
@@ -56,20 +54,9 @@ function SidebarHeader({
 
   return (
     <div className={styles.sidebarHeader}>
-      <div className={styles.headerTop}>
-        <a href="/" aria-label="Go to main edit page">
-          <img src="/wordmark/wordmark.png" alt="EditEngine" height={32} />
-        </a>
-        <IconButton
-          icon={SettingsIcon}
-          onClick={onOpenSettings}
-          size={16}
-          color="tertiary"
-          aria-label="Open settings"
-          title="API Settings"
-        />
-      </div>
-      <p className={styles.subtitle}>Copyedit Wikipedia articles using AI</p>
+      {!isViewingTask && (
+        <p className={styles.subtitle}>Copyedit Wikipedia articles using AI</p>
+      )}
 
       {isViewingTask && taskCreatedAt && (
         <div className={styles.taskInfo}>

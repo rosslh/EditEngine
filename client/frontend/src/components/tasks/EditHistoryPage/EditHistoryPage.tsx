@@ -52,9 +52,7 @@ function EditHistoryPage() {
   return (
     <div className={styles.editHistoryPage}>
       <div className={styles.header}>
-        <div className={styles.titleSection}>
-          <img src="/wordmark/wordmark.png" alt="EditEngine" height={32} />
-        </div>
+        <h1 className={styles.pageTitle}>Edit History</h1>
         <p className={styles.description}>
           View all your edit tasks and their results. Click on any task to view
           detailed changes.

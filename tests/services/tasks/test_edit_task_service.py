@@ -34,19 +34,25 @@ class TestEditTaskService(TestCase):
 
     def test_create_llm_config_anthropic(self):
         """Test creating LLM config with Anthropic API key."""
-        config = EditTaskService.create_llm_config(None, None, "anthropic_key", None, None)
+        config = EditTaskService.create_llm_config(
+            None, None, "anthropic_key", None, None
+        )
         self.assertEqual(config["provider"], "anthropic")
         self.assertEqual(config["api_key"], "anthropic_key")
 
     def test_create_llm_config_mistral(self):
         """Test creating LLM config with Mistral API key."""
-        config = EditTaskService.create_llm_config(None, None, None, "mistral_key", None)
+        config = EditTaskService.create_llm_config(
+            None, None, None, "mistral_key", None
+        )
         self.assertEqual(config["provider"], "mistral")
         self.assertEqual(config["api_key"], "mistral_key")
 
     def test_create_llm_config_perplexity(self):
         """Test creating LLM config with Perplexity API key."""
-        config = EditTaskService.create_llm_config(None, None, None, None, "perplexity_key")
+        config = EditTaskService.create_llm_config(
+            None, None, None, None, "perplexity_key"
+        )
         self.assertEqual(config["provider"], "perplexity")
         self.assertEqual(config["api_key"], "perplexity_key")
 
@@ -68,29 +74,36 @@ class TestEditTaskService(TestCase):
 
     def test_validate_api_keys_anthropic(self):
         """Test validating API keys with Anthropic key."""
-        result = EditTaskService.validate_api_keys(None, None, "anthropic_key", None, None)
+        result = EditTaskService.validate_api_keys(
+            None, None, "anthropic_key", None, None
+        )
         self.assertTrue(result)
 
     def test_validate_api_keys_mistral(self):
         """Test validating API keys with Mistral key."""
-        result = EditTaskService.validate_api_keys(None, None, None, "mistral_key", None)
+        result = EditTaskService.validate_api_keys(
+            None, None, None, "mistral_key", None
+        )
         self.assertTrue(result)
 
     def test_validate_api_keys_perplexity(self):
         """Test validating API keys with Perplexity key."""
-        result = EditTaskService.validate_api_keys(None, None, None, None, "perplexity_key")
+        result = EditTaskService.validate_api_keys(
+            None, None, None, None, "perplexity_key"
+        )
         self.assertTrue(result)
 
     def test_validate_api_keys_both(self):
         """Test validating API keys with both keys."""
-        result = EditTaskService.validate_api_keys("google_key", "openai_key", None, None, None)
+        result = EditTaskService.validate_api_keys(
+            "google_key", "openai_key", None, None, None
+        )
         self.assertTrue(result)
 
     def test_validate_api_keys_none(self):
         """Test validating API keys with no keys."""
         result = EditTaskService.validate_api_keys(None, None, None, None, None)
         self.assertFalse(result)
-
 
     def test_create_edit_task_with_article_title(self):
         """Test creating edit task with article title."""
@@ -120,8 +133,6 @@ class TestEditTaskService(TestCase):
         self.assertEqual(kwargs["article_title"], "Test Article")
         self.assertEqual(kwargs["section_title"], "Test Section")
         self.assertNotIn("content", kwargs)
-
-
 
     @patch("services.tasks.edit_task_service.process_edit_task")
     def test_start_processing_task(self, mock_process_task):

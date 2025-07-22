@@ -218,7 +218,7 @@ class EditOrchestrator:
                 edit_results = await self._process_edit_tasks(
                     edit_tasks, paragraph_processor
                 )
-                for task, result in zip(edit_tasks, edit_results):
+                for task, result in zip(edit_tasks, edit_results, strict=False):
                     # Handle cases where the result is an exception from `gather`
                     if isinstance(result, BaseException):
                         result = EditResult(
@@ -430,7 +430,7 @@ class EditOrchestrator:
         """Assemble the final document from results."""
         final_items = original_items.copy()
 
-        for task, result in zip(tasks, results):
+        for task, result in zip(tasks, results, strict=False):
             if result.success:
                 final_items[task.document_index] = result.content
 

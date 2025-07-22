@@ -1403,7 +1403,7 @@ def test_attempt_external_link_restoration_display_text_replacement():
         target="https://example.com",
         display_text="Example Website",
         full_wikitext="[https://example.com Example Website]",
-        link_type="external"
+        link_type="external",
     )
 
     # Edited text contains the display text

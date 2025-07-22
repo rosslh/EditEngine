@@ -90,7 +90,9 @@ def find_regional_spelling_changes(
             edited_segment = edited_tokens[j1:j2]
 
             if len(original_segment) == len(edited_segment):
-                for original_word, edited_word in zip(original_segment, edited_segment):
+                for original_word, edited_word in zip(
+                    original_segment, edited_segment, strict=False
+                ):
                     change = _check_word_pair_for_regional_spelling(
                         original_word, edited_word
                     )

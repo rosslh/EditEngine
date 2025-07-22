@@ -363,21 +363,24 @@ class TestEditOrchestrator:
         # Add a dummy first paragraph to be skipped
         document_items = ["dummy first paragraph", "prose", "== Section =="]
         assert self.orchestrator is not None
-        with patch.object(
-            self.orchestrator.content_classifier,
-            "should_process_with_context",
-            side_effect=[
-                (
-                    False,
-                    "First prose paragraph in lead section - skipped to preserve article structure",
-                ),  # Skip first prose
-                (True, None),  # Process second
-                (False, "Section heading"),  # Skip section
-            ],
-        ), patch.object(
-            self.orchestrator.content_classifier,
-            "get_content_type",
-            side_effect=["prose", "prose", "heading"],
+        with (
+            patch.object(
+                self.orchestrator.content_classifier,
+                "should_process_with_context",
+                side_effect=[
+                    (
+                        False,
+                        "First prose paragraph in lead section - skipped to preserve article structure",
+                    ),  # Skip first prose
+                    (True, None),  # Process second
+                    (False, "Section heading"),  # Skip section
+                ],
+            ),
+            patch.object(
+                self.orchestrator.content_classifier,
+                "get_content_type",
+                side_effect=["prose", "prose", "heading"],
+            ),
         ):
             # Execute
             tasks, skipped_items = (

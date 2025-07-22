@@ -34,8 +34,6 @@ class EditRequestSerializer(serializers.Serializer):
     )
 
 
-
-
 @extend_schema_serializer(
     examples=[
         OpenApiExample(

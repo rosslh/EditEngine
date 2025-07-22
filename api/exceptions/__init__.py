@@ -16,13 +16,13 @@ from api.exceptions.user_facing_exceptions import (
 )
 
 __all__ = [
-    'UserFacingError',
-    'ValidationError',
-    'APIKeyError',
-    'RateLimitError',
-    'ContentNotFoundError',
-    'ProcessingError',
-    'AIServiceError',
-    'ErrorSanitizer',
-    'custom_exception_handler',
+    "UserFacingError",
+    "ValidationError",
+    "APIKeyError",
+    "RateLimitError",
+    "ContentNotFoundError",
+    "ProcessingError",
+    "AIServiceError",
+    "ErrorSanitizer",
+    "custom_exception_handler",
 ]

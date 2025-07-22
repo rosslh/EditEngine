@@ -90,7 +90,8 @@ class SpellingValidator(BaseValidator):
         # Handle mixed case: match each character's case if possible
         def match_case(src, template):
             return "".join(
-                c.upper() if t.isupper() else c.lower() for c, t in zip(src, template)
+                c.upper() if t.isupper() else c.lower()
+                for c, t in zip(src, template, strict=False)
             ) + (src[len(template) :] if len(src) > len(template) else "")
 
         return match_case(original_word, matched_text)

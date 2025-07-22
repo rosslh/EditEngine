@@ -1,9 +1,9 @@
-@use '../../../../styles/semantic-tokens.scss';
-@use '../../../../styles/mixins.scss';
+@use "../../../../styles/semantic-tokens.scss";
+@use "../../../../styles/mixins.scss";
 
 .loadingState {
   text-align: center;
-  padding: var(--spacing-42) 0;
+  padding: var(--spacing-48) 0;
 }
 
 .loadingContent {

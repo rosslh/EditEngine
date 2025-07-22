@@ -1,8 +1,8 @@
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from drf_spectacular.openapi import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_view
-from django_ratelimit.decorators import ratelimit
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -104,7 +104,9 @@ class EditView(APIView):
         editing_mode = kwargs.get("editing_mode")
 
         if editing_mode not in ["brevity", "copyedit"]:
-            raise ValidationError(f"Invalid editing mode '{editing_mode}'. Must be 'brevity' or 'copyedit'.")
+            raise ValidationError(
+                f"Invalid editing mode '{editing_mode}'. Must be 'brevity' or 'copyedit'."
+            )
 
         serializer = EditRequestSerializer(data=request.data)
         if not serializer.is_valid():
@@ -154,7 +156,6 @@ class EditView(APIView):
             error_message = "Invalid input data"
 
         return error_message
-
 
 
 @extend_schema_view(

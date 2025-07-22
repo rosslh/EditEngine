@@ -29,7 +29,7 @@ class TestUserFacingExceptions:
             user_message="Test error",
             status_code=400,
             error_code="TEST_ERROR",
-            details={"field": "value"}
+            details={"field": "value"},
         )
 
         assert error.user_message == "Test error"
@@ -166,7 +166,9 @@ class TestErrorSanitizer:
         """Test that sensitive information is filtered out."""
         # This test ensures that even if an error message contains sensitive info,
         # it gets sanitized to a safe message
-        error = Exception("Error code: 403 - {'error': {'message': 'Project `proj_nQYmw72zQUWl42pw9oLQafWl` does not have access to model `gpt-4o-mini`'}}")
+        error = Exception(
+            "Error code: 403 - {'error': {'message': 'Project `proj_nQYmw72zQUWl42pw9oLQafWl` does not have access to model `gpt-4o-mini`'}}"
+        )
         sanitized = ErrorSanitizer.sanitize_exception(error)
 
         assert isinstance(sanitized, APIKeyError)
@@ -177,7 +179,9 @@ class TestErrorSanitizer:
 
     def test_sanitize_file_paths_removed(self):
         """Test that file paths are not exposed in error messages."""
-        error = Exception("Processing failed in '/path/to/sensitive/file.py' on line 123")
+        error = Exception(
+            "Processing failed in '/path/to/sensitive/file.py' on line 123"
+        )
         sanitized = ErrorSanitizer.sanitize_exception(error)
 
         assert isinstance(sanitized, ProcessingError)
@@ -267,16 +271,18 @@ class TestCustomExceptionHandler:
         context = {"view": "test_view"}
 
         # Mock DRF handler to return a response
-        with patch('api.exceptions.user_facing_exceptions.drf_exception_handler') as mock_drf:
+        with patch(
+            "api.exceptions.user_facing_exceptions.drf_exception_handler"
+        ) as mock_drf:
             mock_response = Response({"error": "test"}, status=400)
             mock_drf.return_value = mock_response
 
             response = custom_exception_handler(exc, context)
 
             assert response.data == {
-                'error': 'Test validation error',
-                'error_code': 'VALIDATION_ERROR',
-                'details': {"field": "test"}
+                "error": "Test validation error",
+                "error_code": "VALIDATION_ERROR",
+                "details": {"field": "test"},
             }
             assert response.status_code == 400
 
@@ -286,14 +292,16 @@ class TestCustomExceptionHandler:
         context = {"view": "test_view"}
 
         # Mock DRF handler to return a response
-        with patch('api.exceptions.user_facing_exceptions.drf_exception_handler') as mock_drf:
+        with patch(
+            "api.exceptions.user_facing_exceptions.drf_exception_handler"
+        ) as mock_drf:
             mock_response = Response({"detail": "error"}, status=400)
             mock_drf.return_value = mock_response
 
             response = custom_exception_handler(exc, context)
 
-            assert response.data['error_code'] == 'VALIDATION_ERROR'
-            assert '/path/to/file' not in response.data['error']
+            assert response.data["error_code"] == "VALIDATION_ERROR"
+            assert "/path/to/file" not in response.data["error"]
 
     def test_handler_when_drf_returns_none(self):
         """Test handler when DRF doesn't handle the exception."""
@@ -301,10 +309,12 @@ class TestCustomExceptionHandler:
         context = {"view": "test_view"}
 
         # Mock DRF handler to return None (doesn't handle it)
-        with patch('api.exceptions.user_facing_exceptions.drf_exception_handler') as mock_drf:
+        with patch(
+            "api.exceptions.user_facing_exceptions.drf_exception_handler"
+        ) as mock_drf:
             mock_drf.return_value = None
 
-            with patch('api.exceptions.user_facing_exceptions.logger') as mock_logger:
+            with patch("api.exceptions.user_facing_exceptions.logger") as mock_logger:
                 response = custom_exception_handler(exc, context)
 
                 # Should log the error (called twice - once in ErrorSanitizer, once in handler)
@@ -316,15 +326,17 @@ class TestCustomExceptionHandler:
 
                 # Should return sanitized response
                 assert response.status_code == 422  # ProcessingError default
-                assert response.data['error_code'] == 'PROCESSING_ERROR'
-                assert 'unexpected error' in response.data['error'].lower()
+                assert response.data["error_code"] == "PROCESSING_ERROR"
+                assert "unexpected error" in response.data["error"].lower()
 
     def test_handler_preserves_user_facing_error_without_details(self):
         """Test handler with UserFacingError that has no details."""
         exc = APIKeyError("Custom API key error")
         context = {"view": "test_view"}
 
-        with patch('api.exceptions.user_facing_exceptions.drf_exception_handler') as mock_drf:
+        with patch(
+            "api.exceptions.user_facing_exceptions.drf_exception_handler"
+        ) as mock_drf:
             mock_response = Response({"error": "test"}, status=401)
             mock_drf.return_value = mock_response
 
@@ -332,7 +344,7 @@ class TestCustomExceptionHandler:
 
             # Should not have details key if no details provided
             assert response.data == {
-                'error': 'Custom API key error',
-                'error_code': 'API_KEY_ERROR'
+                "error": "Custom API key error",
+                "error_code": "API_KEY_ERROR",
             }
-            assert 'details' not in response.data
+            assert "details" not in response.data

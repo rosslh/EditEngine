@@ -32,10 +32,6 @@ def celery_eager():
     current_app.conf.task_always_eager = False
 
 
-
-
-
-
 @pytest.mark.django_db
 def test_process_edit_task_article_section(monkeypatch):
     # Create a test EditTask
@@ -86,7 +82,7 @@ def test_process_edit_task_handles_exception(monkeypatch):
         editing_mode="copyedit",
         article_title="Test Article",
         section_title="Test Section",
-        llm_provider="openai"
+        llm_provider="openai",
     )
 
     mock_editor = MagicMock()

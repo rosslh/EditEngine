@@ -227,7 +227,9 @@ class WikiEditor:
             except Exception as fallback_error:
                 # Create safe error messages for the fallback scenario
                 primary_error = ErrorSanitizer.sanitize_exception(e)
-                fallback_error_sanitized = ErrorSanitizer.sanitize_exception(fallback_error)
+                fallback_error_sanitized = ErrorSanitizer.sanitize_exception(
+                    fallback_error
+                )
                 combined_message = f"Critical processing failure - {primary_error.user_message}. Additionally, document parsing failed: {fallback_error_sanitized.user_message}"
 
                 # Return a single unchanged result with the original text
@@ -329,4 +331,3 @@ class WikiEditor:
         )
 
         return paragraph_results
-

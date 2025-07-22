@@ -27,10 +27,10 @@ class TestWikiEditor:
     def mock_dependencies(self):
         """Create mock dependencies for WikiEditor."""
         deps = {
-            'document_processor': Mock(),
-            'content_classifier': Mock(),
-            'reversion_tracker': Mock(),
-            'reference_handler': Mock(),
+            "document_processor": Mock(),
+            "content_classifier": Mock(),
+            "reversion_tracker": Mock(),
+            "reference_handler": Mock(),
         }
         return deps
 
@@ -38,10 +38,7 @@ class TestWikiEditor:
     def wiki_editor(self, mock_llm, mock_dependencies):
         """Create a WikiEditor instance for testing."""
         return WikiEditor(
-            llm=mock_llm,
-            editing_mode="copyedit",
-            verbose=False,
-            **mock_dependencies
+            llm=mock_llm, editing_mode="copyedit", verbose=False, **mock_dependencies
         )
 
     def test_wiki_editor_initialization(self, mock_llm):
@@ -57,21 +54,20 @@ class TestWikiEditor:
         assert editor.paragraph_processor is not None
         assert editor.orchestrator is not None
 
-    def test_wiki_editor_initialization_with_custom_components(self, mock_llm, mock_dependencies):
+    def test_wiki_editor_initialization_with_custom_components(
+        self, mock_llm, mock_dependencies
+    ):
         """Test WikiEditor initialization with custom components."""
         editor = WikiEditor(
-            llm=mock_llm,
-            editing_mode="brevity",
-            verbose=True,
-            **mock_dependencies
+            llm=mock_llm, editing_mode="brevity", verbose=True, **mock_dependencies
         )
         assert editor.llm == mock_llm
         assert editor.editing_mode == "brevity"
         assert editor.verbose is True
-        assert editor.document_processor == mock_dependencies['document_processor']
-        assert editor.content_classifier == mock_dependencies['content_classifier']
-        assert editor.reversion_tracker == mock_dependencies['reversion_tracker']
-        assert editor.reference_handler == mock_dependencies['reference_handler']
+        assert editor.document_processor == mock_dependencies["document_processor"]
+        assert editor.content_classifier == mock_dependencies["content_classifier"]
+        assert editor.reversion_tracker == mock_dependencies["reversion_tracker"]
+        assert editor.reference_handler == mock_dependencies["reference_handler"]
 
     @pytest.mark.asyncio
     async def test_edit_wikitext_structured_empty_text(self, wiki_editor):
@@ -91,10 +87,12 @@ class TestWikiEditor:
                 before="Original text",
                 after="Edited text",
                 status="CHANGED",
-                status_details="Successfully edited"
+                status_details="Successfully edited",
             )
         ]
-        wiki_editor.orchestrator.orchestrate_edit_structured = AsyncMock(return_value=mock_results)
+        wiki_editor.orchestrator.orchestrate_edit_structured = AsyncMock(
+            return_value=mock_results
+        )
 
         result = await wiki_editor.edit_wikitext_structured("Some wikitext")
         assert result == mock_results
@@ -108,10 +106,12 @@ class TestWikiEditor:
                 before="Original text",
                 after="Edited text",
                 status="CHANGED",
-                status_details="Successfully edited"
+                status_details="Successfully edited",
             )
         ]
-        wiki_editor.orchestrator.orchestrate_edit_structured = AsyncMock(return_value=mock_results)
+        wiki_editor.orchestrator.orchestrate_edit_structured = AsyncMock(
+            return_value=mock_results
+        )
 
         result = await wiki_editor.edit_wikitext_structured("Some wikitext", callback)
         assert result == mock_results
@@ -158,7 +158,10 @@ class TestWikiEditor:
         # Should return a single error result for large documents
         assert len(result) == 1
         assert result[0].status == "ERRORED"
-        assert "Processing failed for large document (150 items)" in result[0].status_details
+        assert (
+            "Processing failed for large document (150 items)"
+            in result[0].status_details
+        )
         assert len(result[0].before) > 100  # Combined text
 
     @pytest.mark.asyncio
@@ -197,10 +200,12 @@ class TestWikiEditor:
     async def test_edit_article_by_title_structured_success(self, wiki_editor):
         """Test successful edit_article_by_title_structured."""
         # Mock Wikipedia API
-        with patch('services.editing.edit_service.WikipediaAPI') as mock_api_class:
+        with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
             mock_api = AsyncMock()
             mock_api_class.return_value = mock_api
-            mock_api.get_article_wikitext = AsyncMock(return_value="Article wikitext content")
+            mock_api.get_article_wikitext = AsyncMock(
+                return_value="Article wikitext content"
+            )
 
             # Mock edit_wikitext_structured
             mock_results = [
@@ -208,7 +213,7 @@ class TestWikiEditor:
                     before="Original",
                     after="Edited",
                     status="CHANGED",
-                    status_details="Success"
+                    status_details="Success",
                 )
             ]
             wiki_editor.edit_wikitext_structured = AsyncMock(return_value=mock_results)
@@ -218,12 +223,14 @@ class TestWikiEditor:
             assert result == mock_results
             mock_api_class.assert_called_once_with(language="en")
             mock_api.get_article_wikitext.assert_called_once_with("Test Article")
-            wiki_editor.edit_wikitext_structured.assert_called_once_with("Article wikitext content")
+            wiki_editor.edit_wikitext_structured.assert_called_once_with(
+                "Article wikitext content"
+            )
 
     @pytest.mark.asyncio
     async def test_edit_article_by_title_structured_wikipedia_error(self, wiki_editor):
         """Test edit_article_by_title_structured when Wikipedia API fails."""
-        with patch('services.editing.edit_service.WikipediaAPI') as mock_api_class:
+        with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
             mock_api = AsyncMock()
             mock_api_class.return_value = mock_api
             mock_api.get_article_wikitext = AsyncMock(
@@ -231,7 +238,9 @@ class TestWikiEditor:
             )
 
             with pytest.raises(WikipediaAPIError, match="Article not found"):
-                await wiki_editor.edit_article_by_title_structured("Nonexistent Article")
+                await wiki_editor.edit_article_by_title_structured(
+                    "Nonexistent Article"
+                )
 
     @pytest.mark.asyncio
     async def test_edit_article_section_structured_empty_inputs(self, wiki_editor):
@@ -248,14 +257,16 @@ class TestWikiEditor:
     @pytest.mark.asyncio
     async def test_edit_article_section_structured_success(self, wiki_editor):
         """Test successful edit_article_section_structured."""
-        with patch('services.editing.edit_service.WikipediaAPI') as mock_api_class:
+        with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
             mock_api = AsyncMock()
             mock_api_class.return_value = mock_api
             mock_api.get_article_wikitext = AsyncMock(
                 return_value="Full article with\n== Test Section ==\nSection content here\n== Another Section ==\nMore content"
             )
 
-            with patch('services.utils.wiki_utils.extract_section_content') as mock_extract:
+            with patch(
+                "services.utils.wiki_utils.extract_section_content"
+            ) as mock_extract:
                 mock_extract.return_value = "Section content here"
 
                 mock_results = [
@@ -263,10 +274,12 @@ class TestWikiEditor:
                         before="Section content here",
                         after="Edited section content",
                         status="CHANGED",
-                        status_details="Success"
+                        status_details="Success",
                     )
                 ]
-                wiki_editor.edit_wikitext_structured = AsyncMock(return_value=mock_results)
+                wiki_editor.edit_wikitext_structured = AsyncMock(
+                    return_value=mock_results
+                )
 
                 callback = Mock()
                 result = await wiki_editor.edit_article_section_structured(
@@ -284,15 +297,20 @@ class TestWikiEditor:
     @pytest.mark.asyncio
     async def test_edit_article_section_structured_section_not_found(self, wiki_editor):
         """Test edit_article_section_structured when section is not found."""
-        with patch('services.editing.edit_service.WikipediaAPI') as mock_api_class:
+        with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
             mock_api = AsyncMock()
             mock_api_class.return_value = mock_api
             mock_api.get_article_wikitext = AsyncMock(return_value="Article content")
 
-            with patch('services.utils.wiki_utils.extract_section_content') as mock_extract:
+            with patch(
+                "services.utils.wiki_utils.extract_section_content"
+            ) as mock_extract:
                 mock_extract.return_value = None
 
-                with pytest.raises(ValueError, match="Section 'Missing Section' not found in article 'Test Article'"):
+                with pytest.raises(
+                    ValueError,
+                    match="Section 'Missing Section' not found in article 'Test Article'",
+                ):
                     await wiki_editor.edit_article_section_structured(
                         "Test Article", "Missing Section"
                     )
@@ -305,13 +323,13 @@ class TestWikiEditor:
     def test_build_post_processing_pipeline(self, wiki_editor):
         """Test _build_post_processing_pipeline creates proper pipeline."""
         mock_validators = {
-            'link_validator': Mock(),
-            'template_validator': Mock(),
-            'quote_validator': Mock(),
-            'spelling_validator': Mock(),
-            'list_marker_validator': Mock(),
-            'reference_validator': Mock(),
-            'meta_commentary_validator': Mock(),
+            "link_validator": Mock(),
+            "template_validator": Mock(),
+            "quote_validator": Mock(),
+            "spelling_validator": Mock(),
+            "list_marker_validator": Mock(),
+            "reference_validator": Mock(),
+            "meta_commentary_validator": Mock(),
         }
 
         pipeline = wiki_editor._build_post_processing_pipeline(mock_validators)
@@ -375,7 +393,9 @@ class TestListMarkerValidator:
         """Test that unordered list markers are preserved when unchanged."""
         original = "* This is a list item"
         edited = "* This is an edited list item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert "*" in result
         assert "edited list item" in result
 
@@ -383,7 +403,9 @@ class TestListMarkerValidator:
         """Test that ordered list markers are preserved when unchanged."""
         original = "# This is a numbered item"
         edited = "# This is an edited numbered item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert "#" in result
         assert "edited numbered item" in result
 
@@ -391,28 +413,36 @@ class TestListMarkerValidator:
         """Test validation when list markers are incorrectly removed."""
         original = "* This is a list item"
         edited = "This is no longer a list item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert result.startswith("*")
 
     def test_validate_list_markers_added(self, list_marker_validator):
         """Test validation when list markers are incorrectly added."""
         original = "This is regular text"
         edited = "* This is now a list item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert not result.startswith("*")
 
     def test_validate_no_list_markers(self, list_marker_validator):
         """Test validation of text without list markers."""
         original = "This is regular paragraph text."
         edited = "This is edited paragraph text."
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert result == edited
 
     def test_validate_mixed_list_types(self, list_marker_validator):
         """Test validation with different types of list markers."""
         original = "* Unordered item"
         edited = "* Edited unordered item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert "*" in result
         assert "Edited unordered item" in result
 
@@ -420,5 +450,7 @@ class TestListMarkerValidator:
         """Test validation when list marker type is changed."""
         original = "* This is an unordered item"
         edited = "# This is now an ordered item"
-        result = list_marker_validator.validate_and_restore_list_markers(original, edited, 0, 1)
+        result = list_marker_validator.validate_and_restore_list_markers(
+            original, edited, 0, 1
+        )
         assert result.startswith("*")

@@ -20,7 +20,6 @@
   text-decoration: none;
   font-size: var(--font-size-small);
   margin-bottom: var(--spacing-12);
-  transition: color 0.2s ease;
 
   &:hover {
     color: var(--text-color-primary);
@@ -28,8 +27,8 @@
 }
 
 .title {
-  font-size: var(--font-size-xlarge);
-  font-weight: 600;
+  font-size: var(--font-size-large);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-color-primary);
   margin: 0 0 var(--spacing-8) 0;
 }

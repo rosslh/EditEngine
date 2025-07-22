@@ -348,7 +348,7 @@ class QuoteValidator(BaseValidator):
         if len(quotes1) != len(quotes2):
             return False
 
-        for q1, q2 in zip(quotes1, quotes2):
+        for q1, q2 in zip(quotes1, quotes2, strict=False):
             if q1 != q2:
                 # Check if q2 is q1 with trailing punctuation
                 if not (q2.startswith(q1) and re.match(r"^[^\w]*$", q2[len(q1) :])):

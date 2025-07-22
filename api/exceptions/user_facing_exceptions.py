@@ -23,7 +23,7 @@ class UserFacingError(Exception):
         user_message: str,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
         error_code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None
+        details: Optional[Dict[str, Any]] = None,
     ):
         self.user_message = user_message
         self.status_code = status_code
@@ -40,72 +40,104 @@ class ValidationError(UserFacingError):
             user_message=user_message,
             status_code=status.HTTP_400_BAD_REQUEST,
             error_code="VALIDATION_ERROR",
-            details=details
+            details=details,
         )
 
 
 class APIKeyError(UserFacingError):
     """API key related errors."""
 
-    def __init__(self, user_message: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
-        message = user_message or "API key required. Please provide a valid API key in the request headers."
+    def __init__(
+        self,
+        user_message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        message = (
+            user_message
+            or "API key required. Please provide a valid API key in the request headers."
+        )
         super().__init__(
             user_message=message,
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code="API_KEY_ERROR",
-            details=details
+            details=details,
         )
 
 
 class RateLimitError(UserFacingError):
     """Rate limiting errors."""
 
-    def __init__(self, user_message: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
-        message = user_message or "Request rate limit exceeded. Please wait before trying again."
+    def __init__(
+        self,
+        user_message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        message = (
+            user_message
+            or "Request rate limit exceeded. Please wait before trying again."
+        )
         super().__init__(
             user_message=message,
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             error_code="RATE_LIMIT_ERROR",
-            details=details
+            details=details,
         )
 
 
 class ContentNotFoundError(UserFacingError):
     """Content or resource not found errors."""
 
-    def __init__(self, user_message: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        user_message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
         message = user_message or "The requested content could not be found."
         super().__init__(
             user_message=message,
             status_code=status.HTTP_404_NOT_FOUND,
             error_code="CONTENT_NOT_FOUND",
-            details=details
+            details=details,
         )
 
 
 class ProcessingError(UserFacingError):
     """Content processing errors."""
 
-    def __init__(self, user_message: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
-        message = user_message or "Unable to process the content. Please try again or contact support if the issue persists."
+    def __init__(
+        self,
+        user_message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        message = (
+            user_message
+            or "Unable to process the content. Please try again or contact support if the issue persists."
+        )
         super().__init__(
             user_message=message,
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             error_code="PROCESSING_ERROR",
-            details=details
+            details=details,
         )
 
 
 class AIServiceError(UserFacingError):
     """AI service related errors."""
 
-    def __init__(self, user_message: Optional[str] = None, details: Optional[Dict[str, Any]] = None):
-        message = user_message or "The AI service is temporarily unavailable. Please try again in a few minutes."
+    def __init__(
+        self,
+        user_message: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        message = (
+            user_message
+            or "The AI service is temporarily unavailable. Please try again in a few minutes."
+        )
         super().__init__(
             user_message=message,
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             error_code="AI_SERVICE_ERROR",
-            details=details
+            details=details,
         )
 
 
@@ -120,13 +152,13 @@ class ErrorSanitizer:
 
     # Sensitive patterns that should never be exposed to users
     SENSITIVE_PATTERNS = [
-        r'key[_-]?\w*[=:]\s*[\w\-]{10,}',  # API keys
-        r'token[_-]?\w*[=:]\s*[\w\-]{10,}',  # Tokens
-        r'secret[_-]?\w*[=:]\s*[\w\-]{10,}',  # Secrets
-        r'proj_[a-zA-Z0-9]{20,}',  # Project IDs
-        r'/[a-zA-Z0-9_\-/]+\.py',  # File paths
-        r'line \d+',  # Line numbers
-        r'Traceback \(most recent call last\)',  # Stack traces
+        r"key[_-]?\w*[=:]\s*[\w\-]{10,}",  # API keys
+        r"token[_-]?\w*[=:]\s*[\w\-]{10,}",  # Tokens
+        r"secret[_-]?\w*[=:]\s*[\w\-]{10,}",  # Secrets
+        r"proj_[a-zA-Z0-9]{20,}",  # Project IDs
+        r"/[a-zA-Z0-9_\-/]+\.py",  # File paths
+        r"line \d+",  # Line numbers
+        r"Traceback \(most recent call last\)",  # Stack traces
         r'File "[^"]*"',  # File references
     ]
 
@@ -180,71 +212,111 @@ class ErrorSanitizer:
     def _is_auth_error(cls, error_str: str, exception_type: str) -> bool:
         """Check if error is authentication/authorization related."""
         auth_indicators = [
-            'unauthorized', 'authentication', 'api key', 'invalid key',
-            'access denied', 'permission denied', '401', '403',
-            'does not have access', 'authentication failed'
+            "unauthorized",
+            "authentication",
+            "api key",
+            "invalid key",
+            "access denied",
+            "permission denied",
+            "401",
+            "403",
+            "does not have access",
+            "authentication failed",
         ]
         return any(indicator in error_str for indicator in auth_indicators)
 
     @classmethod
     def _create_auth_error(cls, error_str: str) -> Union[APIKeyError, RateLimitError]:
         """Create appropriate auth error based on error content."""
-        if 'invalid' in error_str or 'unauthorized' in error_str:
-            return APIKeyError("Invalid API key provided. Please check your API key and try again.")
-        elif 'access' in error_str and 'model' in error_str:
-            return APIKeyError("Your API key does not have access to the requested model. Please check your subscription or try a different model.")
-        elif 'quota' in error_str or 'limit' in error_str:
-            return RateLimitError("API quota or rate limit exceeded. Please wait before trying again.")
+        if "invalid" in error_str or "unauthorized" in error_str:
+            return APIKeyError(
+                "Invalid API key provided. Please check your API key and try again."
+            )
+        elif "access" in error_str and "model" in error_str:
+            return APIKeyError(
+                "Your API key does not have access to the requested model. Please check your subscription or try a different model."
+            )
+        elif "quota" in error_str or "limit" in error_str:
+            return RateLimitError(
+                "API quota or rate limit exceeded. Please wait before trying again."
+            )
         else:
             return APIKeyError()
 
     @classmethod
     def _is_rate_limit_error(cls, error_str: str) -> bool:
         """Check if error is rate limiting related."""
-        rate_indicators = ['rate limit', 'quota', 'too many requests', '429']
+        rate_indicators = ["rate limit", "quota", "too many requests", "429"]
         return any(indicator in error_str for indicator in rate_indicators)
 
     @classmethod
     def _is_not_found_error(cls, error_str: str, exception_type: str) -> bool:
         """Check if error is content not found related."""
         not_found_indicators = [
-            'not found', '404', 'does not exist', 'missing',
-            'filenotfounderror', 'objectdoesnotexist'
+            "not found",
+            "404",
+            "does not exist",
+            "missing",
+            "filenotfounderror",
+            "objectdoesnotexist",
         ]
-        return any(indicator in error_str for indicator in not_found_indicators) or \
-               exception_type in ['FileNotFoundError', 'ObjectDoesNotExist', 'Http404']
+        return any(
+            indicator in error_str for indicator in not_found_indicators
+        ) or exception_type in ["FileNotFoundError", "ObjectDoesNotExist", "Http404"]
 
     @classmethod
     def _create_not_found_error(cls) -> ContentNotFoundError:
         """Create content not found error."""
-        return ContentNotFoundError("The requested article or section could not be found. Please check the article title and section title.")
+        return ContentNotFoundError(
+            "The requested article or section could not be found. Please check the article title and section title."
+        )
 
     @classmethod
     def _is_validation_error(cls, error_str: str, exception_type: str) -> bool:
         """Check if error is validation related."""
         validation_indicators = [
-            'validation', 'invalid input', 'required field', 'missing',
-            'valueerror', 'keyerror'
+            "validation",
+            "invalid input",
+            "required field",
+            "missing",
+            "valueerror",
+            "keyerror",
         ]
-        return any(indicator in error_str for indicator in validation_indicators) or \
-               exception_type in ['ValueError', 'KeyError', 'ValidationError']
+        return any(
+            indicator in error_str for indicator in validation_indicators
+        ) or exception_type in ["ValueError", "KeyError", "ValidationError"]
 
     @classmethod
     def _create_validation_error(cls, error_str: str) -> ValidationError:
         """Create validation error with safe message."""
-        if 'required' in error_str:
-            return ValidationError("Required information is missing. Please check your input and try again.")
-        elif 'invalid' in error_str:
-            return ValidationError("Invalid input provided. Please check your data and try again.")
+        if "required" in error_str:
+            return ValidationError(
+                "Required information is missing. Please check your input and try again."
+            )
+        elif "invalid" in error_str:
+            return ValidationError(
+                "Invalid input provided. Please check your data and try again."
+            )
         else:
-            return ValidationError("Input validation failed. Please check your data and try again.")
+            return ValidationError(
+                "Input validation failed. Please check your data and try again."
+            )
 
     @classmethod
     def _is_ai_service_error(cls, error_str: str) -> bool:
         """Check if error is AI service related."""
         ai_indicators = [
-            'openai', 'anthropic', 'google', 'gemini', 'gpt', 'claude',
-            'model', 'llm', 'ai service', 'timeout', 'service unavailable'
+            "openai",
+            "anthropic",
+            "google",
+            "gemini",
+            "gpt",
+            "claude",
+            "model",
+            "llm",
+            "ai service",
+            "timeout",
+            "service unavailable",
         ]
         return any(indicator in error_str for indicator in ai_indicators)
 
@@ -252,11 +324,17 @@ class ErrorSanitizer:
     def _is_processing_error(cls, error_str: str, exception_type: str) -> bool:
         """Check if error is content processing related."""
         processing_indicators = [
-            'processing', 'parsing', 'format', 'encoding', 'decode',
-            'memory', 'timeout'
+            "processing",
+            "parsing",
+            "format",
+            "encoding",
+            "decode",
+            "memory",
+            "timeout",
         ]
-        return any(indicator in error_str for indicator in processing_indicators) or \
-               exception_type in ['MemoryError', 'TimeoutError', 'UnicodeError']
+        return any(
+            indicator in error_str for indicator in processing_indicators
+        ) or exception_type in ["MemoryError", "TimeoutError", "UnicodeError"]
 
 
 def custom_exception_handler(exc, context):
@@ -273,18 +351,18 @@ def custom_exception_handler(exc, context):
         if isinstance(exc, UserFacingError):
             # Already safe, just format consistently
             custom_response_data: Dict[str, Any] = {
-                'error': exc.user_message,
-                'error_code': exc.error_code,
+                "error": exc.user_message,
+                "error_code": exc.error_code,
             }
             if exc.details:
-                custom_response_data['details'] = exc.details
+                custom_response_data["details"] = exc.details
             response.data = custom_response_data
         else:
             # Sanitize DRF's default error response
             sanitized_error = ErrorSanitizer.sanitize_exception(exc)
             response.data = {
-                'error': sanitized_error.user_message,
-                'error_code': sanitized_error.error_code,
+                "error": sanitized_error.user_message,
+                "error_code": sanitized_error.error_code,
             }
             response.status_code = sanitized_error.status_code
     else:
@@ -295,15 +373,15 @@ def custom_exception_handler(exc, context):
         logger.error(
             f"Unhandled exception in {context.get('view', 'unknown view')}: "
             f"{type(exc).__name__}: {exc}",
-            exc_info=True
+            exc_info=True,
         )
 
         response = Response(
             {
-                'error': sanitized_error.user_message,
-                'error_code': sanitized_error.error_code,
+                "error": sanitized_error.user_message,
+                "error_code": sanitized_error.error_code,
             },
-            status=sanitized_error.status_code
+            status=sanitized_error.status_code,
         )
 
     return response
