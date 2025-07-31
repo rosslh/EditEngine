@@ -2,7 +2,8 @@ from typing import Any, Dict, Optional
 
 from api.exceptions import APIKeyError
 from data.models.edit_task import EditTask
-from services.tasks.edit_tasks import process_edit_task
+from services.security.encryption_service import EncryptionService
+from services.tasks.edit_tasks import process_edit_task_batched
 
 
 class EditTaskService:
@@ -81,8 +82,12 @@ class EditTaskService:
         editing_mode: str, llm_config: Dict[str, Any], task_kwargs: Dict[str, Any]
     ) -> str:
         """Start processing the edit task asynchronously and return the Celery task ID."""
-        celery_task = process_edit_task.delay(
-            editing_mode=editing_mode, llm_config=llm_config, **task_kwargs
+        # Encrypt the llm_config to secure API keys in transit
+        encryption_service = EncryptionService()
+        encrypted_config = encryption_service.encrypt_dict(llm_config)
+
+        celery_task = process_edit_task_batched.delay(
+            editing_mode=editing_mode, encrypted_llm_config=encrypted_config, **task_kwargs
         )
         return celery_task.id
 

@@ -7,8 +7,10 @@ asgiref==3.8.1
 attrs==25.3.0
 black==24.1.1
 cachetools==5.5.2
-celery[sqlalchemy]>=5.2.0
+celery[redis]>=5.2.0
+redis>=4.5.0
 certifi==2025.4.26
+cryptography>=41.0.0
 cfgv==3.4.0
 charset-normalizer==3.4.2
 click==8.2.1
@@ -80,8 +82,7 @@ pydantic_core==2.27.2
 pydocstyle==6.3.0
 pyflakes==3.2.0
 Pygments==2.19.1
-psycopg[binary]>=3.1.0
-psycopg2-binary==2.9.10
+mysqlclient>=2.1.0
 pytest==8.4.0
 pytest-asyncio==1.1.0
 pytest-cov==6.0.0
@@ -111,6 +112,8 @@ untokenize==0.1.1
 urllib3==2.4.0
 virtualenv==20.31.2
 wcwidth==0.2.13
+whitenoise==6.5.0
 wikitextparser==0.56.4
+gunicorn>=21.2.0
 yarl==1.20.0
 zstandard==0.23.0

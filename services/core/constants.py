@@ -1,5 +1,6 @@
 """Configuration and constants for the Wiki Editor."""
 
+import os
 from enum import Enum
 
 # Processing configuration
@@ -7,18 +8,15 @@ MIN_PARAGRAPH_LENGTH = 48
 UNCHANGED_MARKER = "<UNCHANGED>"
 
 # Concurrency configuration
-# This constant controls both Celery worker concurrency and LLM API semaphore limits
-# to ensure they remain synchronized for optimal performance and rate limit protection.
-#
-# Celery Worker Concurrency: Maximum number of concurrent tasks per worker process
-# LLM API Semaphore Limit: Maximum number of concurrent LLM API requests
-#
-# These values are kept equal because:
-# - Each Celery task typically makes one LLM API call
-# - Prevents bottlenecking at either the worker or API level
-# - Provides defense-in-depth rate limiting (worker-level + API-level)
-# - Allows fine-tuning both limits together for different deployment scenarios
-DEFAULT_WORKER_CONCURRENCY = 100
+# Conservative defaults optimized for low-resource servers (0.5 cores, 512MB RAM)
+# Celery worker concurrency controls the number of concurrent batch tasks
+# Each batch processes multiple paragraphs to reduce task creation overhead
+DEFAULT_WORKER_CONCURRENCY = int(os.environ.get("CELERY_WORKER_CONCURRENCY", "1"))
+
+# Paragraph batching configuration
+# Number of paragraphs to process in each Celery task
+# Reduces task creation overhead while maintaining parallelism
+DEFAULT_PARAGRAPH_BATCH_SIZE = int(os.environ.get("CELERY_PARAGRAPH_BATCH_SIZE", "3"))
 
 # Wiki markup prefixes that indicate non-prose content
 NON_PROSE_PREFIXES = {

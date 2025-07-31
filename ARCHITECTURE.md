@@ -33,15 +33,16 @@ graph TD
     end
 
     subgraph "Data Storage"
-        Postgres[PostgreSQL Database]
+        MariaDB[MariaDB Database]
+        Redis[Redis Message Broker]
     end
 
     Frontend -- "API Requests (HTTP)" --> Django
-    Django -- "Enqueues Task" --> Postgres
-    Celery -- "Pulls Task" --> Postgres
+    Django -- "Enqueues Task" --> Redis
+    Celery -- "Pulls Task" --> Redis
     Celery -- "Processes Task (e.g., calls OpenAI)" --> ExternalAPIs((External APIs))
     Celery -- "Updates Task Status" --> Django
-    Django -- "Stores Results" --> Postgres
+    Django -- "Stores Results" --> MariaDB
     Frontend -- "Polls for Results" --> Django
 ```
 
@@ -79,7 +80,7 @@ EditEngine follows a clean three-tier architecture with clear separation of conc
 
 ### Django Project Configuration (`EditEngine/`)
 
-- `settings.py` - Django settings with PostgreSQL, and Celery configuration
+- `settings.py` - Django settings with MariaDB, Redis, and Celery configuration
 - `urls.py` - Main URL routing configuration
 - `celery.py` - Celery configuration for background tasks
 - `wsgi.py` / `asgi.py` - WSGI/ASGI application entry points
@@ -165,7 +166,13 @@ EditEngine follows a clean three-tier architecture with clear separation of conc
 
 #### Tasks (`services/tasks/`)
 
-- `edit_tasks.py` - Celery task for asynchronous edit processing
+- `edit_tasks.py` - Celery tasks for asynchronous edit processing with internal paragraph batching
+- `edit_task_service.py` - Service layer for EditTask creation and management
+- `edit_task_query_service.py` - Query service for EditTask data retrieval
+
+#### Security (`services/security/`)
+
+- `encryption_service.py` - Fernet-based encryption for securing API keys in Celery tasks
 
 ### Data Layer (`data/`)
 
@@ -395,9 +402,9 @@ graph TD
 ### Backend
 
 - **Django 5.2** - Web framework
-- **PostgreSQL** - Primary database
+- **MariaDB** - Primary database for persistent data
+- **Redis** - Message broker for Celery task queue
 - **Celery** - Background task processing
-- **PostgreSQL** - Database and message broker for Celery
 - **Django REST Framework** - API framework
 - **LangChain** - LLM integration
 - **OpenAI/Google AI** - Language models
@@ -443,9 +450,7 @@ INSTALLED_APPS = [
 
 ### Environment Variables
 
-- Database configuration (PostgreSQL)
-- Debug settings
-- API keys provided via request headers (not environment variables)
+See [CONTRIBUTING.md - Environment Variables](CONTRIBUTING.md#environment-variables) for all configuration details.
 
 ## Deployment
 
@@ -459,15 +464,21 @@ INSTALLED_APPS = [
 
 - Django development server
 - Celery worker processes
-- PostgreSQL database (serves as both data store and message broker)
+- MariaDB database for persistent data storage
+- Redis server for task message brokering
 
 ### Celery Worker Configuration
 
 **Current Setup:**
 
-- 1 worker with 100 concurrent tasks (I/O-bound optimization)
-- PostgreSQL as message broker and result backend
-- Dual-layer rate limiting: worker-level and API-level (100 each)
+- Redis as message broker for task queuing
+- No result backend - results stored directly in MariaDB via Django ORM
+- Single Celery task per article/section with internal paragraph batching
+- Batching reduces Redis overhead while maintaining processing efficiency
+
+**Performance Configuration:**
+
+See [CONTRIBUTING.md - Environment Variables](CONTRIBUTING.md#environment-variables) for all Celery configuration options including worker concurrency, paragraph batching, and memory limits.
 
 **Configuration Files:**
 
@@ -478,11 +489,27 @@ INSTALLED_APPS = [
 
 ## Security Considerations
 
-- API keys passed via headers, not stored in environment
+### API Key Security
+- **API keys passed via headers** - Never stored in environment variables or database
+- **Encryption in transit** - LLM API keys encrypted using Fernet symmetric encryption before sending to Celery workers
+- **Secure task payload** - Only encrypted `llm_config` sent through Redis message broker
+- **Worker-side decryption** - Workers decrypt API keys using encryption key (see [Environment Variables](CONTRIBUTING.md#environment-variables))
+- **No persistence** - API keys exist only in memory during task execution
+
+### Security Flow
+1. User provides API key via HTTP header (e.g., `X-OpenAI-API-Key`)
+2. Django API encrypts the key using `EncryptionService` 
+3. Encrypted payload sent to Redis message broker
+4. Celery worker decrypts payload using same encryption key
+5. Worker uses decrypted API key for LLM calls
+6. API key discarded after task completion
+
+### Additional Security
 - Django security middleware enabled
-- PostgreSQL with SSL preference
+- MariaDB with SSL preference  
 - Input validation through serializers
 - Content validation pipeline
+- HTTPS enforced in production
 
 ## Testing Strategy
 
@@ -518,7 +545,7 @@ asyncio_mode = auto
 - `python3 manage.py test` - Run tests
 - `python3 manage.py test:coverage` - Test coverage
 - `python3 manage.py dev` - Development server
-- `python3 manage.py celery worker` - Background worker (defaults to --concurrency=100)
+- `python3 manage.py celery worker` - Background worker (see [Environment Variables](CONTRIBUTING.md#environment-variables))
 
 ### Code Quality
 

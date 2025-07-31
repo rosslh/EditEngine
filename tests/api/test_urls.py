@@ -19,7 +19,7 @@ class TestDjangoUrls(TestCase):
         """Test that admin URL resolves correctly."""
         from EditEngine.urls import urlpatterns
 
-        self.assertEqual(len(urlpatterns), 6)
+        self.assertEqual(len(urlpatterns), 7)
 
         # Test admin URL pattern
         admin_url = urlpatterns[0]

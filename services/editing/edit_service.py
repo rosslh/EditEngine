@@ -244,6 +244,74 @@ class WikiEditor:
 
         return paragraph_results
 
+    async def edit_wikitext_structured_batched(
+        self, text: str, enhanced_progress_callback=None, batch_size: int = 5
+    ) -> List[ParagraphResult]:
+        """Edit wikitext using batched paragraph processing to reduce overhead.
+
+        Args:
+            text: The wikitext to edit
+            enhanced_progress_callback: Optional callback for enhanced progress with granular phases
+            batch_size: Number of paragraphs to process per batch
+
+        Returns:
+            List of ParagraphResult objects with before/after content and status
+        """
+        if not text.strip():
+            return []
+
+        try:
+            paragraph_results = await self.orchestrator.orchestrate_edit_structured_batched(
+                text, self.paragraph_processor, enhanced_progress_callback, batch_size
+            )
+        except Exception as e:
+            # Return all paragraphs as unchanged - same error handling as regular method
+            try:
+                document_items = self.document_processor.process(text)
+
+                # Create safe error message using sanitizer
+                sanitized_error = ErrorSanitizer.sanitize_exception(e)
+                error_message = sanitized_error.user_message
+
+                # Optimize memory usage for large documents by limiting error objects
+                if len(document_items) > 100:
+                    full_text = "\n".join(document_items)
+                    return [
+                        ParagraphResult(
+                            before=full_text,
+                            after=full_text,
+                            status="ERRORED",
+                            status_details=f"Batched processing failed for large document ({len(document_items)} items): {error_message}",
+                        )
+                    ]
+                else:
+                    return [
+                        ParagraphResult(
+                            before=item,
+                            after=item,
+                            status="ERRORED",
+                            status_details=error_message,
+                        )
+                        for item in document_items
+                    ]
+            except Exception as fallback_error:
+                primary_error = ErrorSanitizer.sanitize_exception(e)
+                fallback_error_sanitized = ErrorSanitizer.sanitize_exception(
+                    fallback_error
+                )
+                combined_message = f"Critical batched processing failure - {primary_error.user_message}. Additionally, document parsing failed: {fallback_error_sanitized.user_message}"
+
+                return [
+                    ParagraphResult(
+                        before=text,
+                        after=text,
+                        status="ERRORED",
+                        status_details=combined_message,
+                    )
+                ]
+
+        return paragraph_results
+
     async def edit_article_by_title_structured(
         self, article_title: str, language: str = "en"
     ) -> List[ParagraphResult]:
@@ -328,6 +396,62 @@ class WikiEditor:
         # Edit the section content using the structured edit method
         paragraph_results = await self.edit_wikitext_structured(
             section_content, enhanced_progress_callback
+        )
+
+        return paragraph_results
+
+    async def edit_article_section_structured_batched(
+        self,
+        article_title: str,
+        section_title: str,
+        language: str = "en",
+        enhanced_progress_callback=None,
+        batch_size: int = 5,
+    ) -> List[ParagraphResult]:
+        """Edit a specific section of a Wikipedia article with batched paragraph processing.
+
+        This method fetches the article content from Wikipedia, extracts the specified section,
+        and then edits it using batched processing to reduce task overhead.
+
+        Args:
+            article_title: The title of the Wikipedia article
+            section_title: The title of the section to edit within the article
+            language: Wikipedia language code (default: "en")
+            enhanced_progress_callback: Optional callback for enhanced progress with granular phases
+            batch_size: Number of paragraphs to process per batch
+
+        Returns:
+            List of ParagraphResult objects with before/after content and status
+
+        Raises:
+            WikipediaAPIError: If the article cannot be fetched
+            ValueError: If the section cannot be found
+        """
+        if not article_title or not article_title.strip():
+            raise ValueError("Article title cannot be empty")
+
+        if not section_title or not section_title.strip():
+            raise ValueError("Section title cannot be empty")
+
+        # Initialize Wikipedia API client
+        wikipedia_api = WikipediaAPI(language=language)
+
+        # Fetch the article content
+        wikitext = await wikipedia_api.get_article_wikitext(article_title)
+
+        # Extract the specific section content
+        from services.utils.wiki_utils import extract_section_content
+
+        section_content = extract_section_content(wikitext, section_title)
+
+        if section_content is None:
+            raise ValueError(
+                f"Section '{section_title}' not found in article '{article_title}'"
+            )
+
+        # Edit the section content using the batched structured edit method
+        paragraph_results = await self.edit_wikitext_structured_batched(
+            section_content, enhanced_progress_callback, batch_size
         )
 
         return paragraph_results

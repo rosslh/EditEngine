@@ -39,12 +39,23 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "t")
 
+# Allow build-time operations without SECRET_KEY (for Heroku buildpack compatibility)
 if not SECRET_KEY:
-    raise ImproperlyConfigured("The SECRET_KEY environment variable must not be empty.")
+    # Check if we're in a build environment (collectstatic, migrate, etc.)
+    import sys
+    build_commands = ["collectstatic", "migrate", "help", "check"]
+    is_build_command = any(cmd in sys.argv for cmd in build_commands)
+
+    if is_build_command:
+        # Use a temporary secret key for build operations
+        SECRET_KEY = "build-time-secret-key-not-for-production-use"
+    else:
+        raise ImproperlyConfigured("The SECRET_KEY environment variable must not be empty.")
 
 ALLOWED_HOSTS = [
     "editengine.toolforge.org",
     "localhost",
+    "127.0.0.1",
     "0.0.0.0",
 ]
 
@@ -98,6 +109,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -132,27 +144,48 @@ WSGI_APPLICATION = "EditEngine.wsgi.application"
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Get database credentials from environment
-DB_PASSWORD = os.environ.get("DB_PASSWORD")
-if not DB_PASSWORD and "test" not in sys.argv and "pytest" not in sys.modules:
-    raise ImproperlyConfigured(
-        "The DB_PASSWORD environment variable must not be empty for production use."
-    )
+if "test" not in sys.argv and "pytest" not in sys.modules:
+    # Production - support both custom env vars and Toolforge native vars
+    DB_PASSWORD = os.environ.get("DB_PASSWORD") or os.environ.get("TOOL_TOOLSDB_PASSWORD")
+    DB_NAME = os.environ.get("DB_NAME") or f"{os.environ.get('TOOL_TOOLSDB_USER', '')}__editengine"
+    DB_USER = os.environ.get("DB_USER") or os.environ.get("TOOL_TOOLSDB_USER")
+    DB_HOST = os.environ.get("DB_HOST", "tools.db.svc.wikimedia.cloud")
+    DB_PORT = os.environ.get("DB_PORT", "3306")
+    DB_CONN_MAX_AGE = int(os.environ.get("DB_CONN_MAX_AGE", "0"))
+else:
+    # Test environment can use defaults
+    DB_PASSWORD = ""
+    DB_NAME = "test_db"
+    DB_USER = "test_user"
+    DB_HOST = "localhost"
+    DB_PORT = "3306"
+    DB_CONN_MAX_AGE = 0
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME", "editengine"),
-        "USER": os.environ.get("DB_USER", "editengine_user"),
-        "PASSWORD": DB_PASSWORD or "",
-        "HOST": os.environ.get("DB_HOST", "localhost"),
-        "PORT": os.environ.get("DB_PORT", "5432"),
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": DB_NAME,
+        "USER": DB_USER,
+        "PASSWORD": DB_PASSWORD,
+        "HOST": DB_HOST,
+        "PORT": DB_PORT,
+        "CONN_MAX_AGE": DB_CONN_MAX_AGE,
         "OPTIONS": {
-            "sslmode": "prefer",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            "charset": "utf8mb4",
         },
     }
 }
 
-# Use SQLite for testing to avoid PostgreSQL connection issues
+# For Toolforge deployment, use replica.my.cnf if available
+if os.environ.get("TOOL_TOOLSDB_USER"):
+    replica_config_path = os.path.expanduser("~/replica.my.cnf")
+    if os.path.exists(replica_config_path):
+        db_options = DATABASES["default"]["OPTIONS"]
+        if isinstance(db_options, dict):
+            db_options["read_default_file"] = replica_config_path
+
+# Use SQLite for testing to avoid MariaDB connection issues
 if "test" in sys.argv or "pytest" in sys.modules:
     DATABASES["default"] = {
         "ENGINE": "django.db.backends.sqlite3",
@@ -196,6 +229,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# Static files storage with WhiteNoise for efficient serving
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Django-Vite settings
 VITE_APP_DIR = os.path.join(BASE_DIR, "client", "frontend")
@@ -243,9 +279,37 @@ SPECTACULAR_SETTINGS = {
 }
 
 # Celery Configuration
-# PostgreSQL is used as both message broker and result backend
-CELERY_BROKER_URL = f"sqla+postgresql://{os.environ.get('DB_USER')}:{DB_PASSWORD or ''}@{os.environ.get('DB_HOST', 'localhost')}:{os.environ.get('DB_PORT', '5432')}/{os.environ.get('DB_NAME')}"
-CELERY_RESULT_BACKEND = f"db+postgresql://{os.environ.get('DB_USER')}:{DB_PASSWORD or ''}@{os.environ.get('DB_HOST', 'localhost')}:{os.environ.get('DB_PORT', '5432')}/{os.environ.get('DB_NAME')}"
+# Redis is used as both message broker and result backend
+if "test" not in sys.argv and "pytest" not in sys.modules:
+    # Production - support both custom env vars and Toolforge native TOOL_REDIS_URI
+    if os.environ.get("TOOL_REDIS_URI"):
+        # Use Toolforge's native Redis URI if available
+        import urllib.parse
+        parsed = urllib.parse.urlparse(os.environ["TOOL_REDIS_URI"])
+        REDIS_HOST = parsed.hostname or "tools-redis"
+        REDIS_PORT = str(parsed.port or 6379)
+        REDIS_DB = parsed.path.lstrip('/') or "0"
+        REDIS_PASSWORD = parsed.password or ""
+    else:
+        # Fall back to custom environment variables
+        REDIS_HOST = os.environ.get("REDIS_HOST", "tools-redis")
+        REDIS_PORT = os.environ.get("REDIS_PORT", "6379")
+        REDIS_DB = os.environ.get("REDIS_DB", "0")
+        REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")
+else:
+    # Test environment defaults
+    REDIS_HOST = "localhost"
+    REDIS_PORT = "6379"
+    REDIS_DB = "0"
+    REDIS_PASSWORD = ""
+
+if REDIS_PASSWORD:
+    CELERY_BROKER_URL = f"redis://:{REDIS_PASSWORD}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+else:
+    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}"
+
+# No result backend - we persist results directly to MariaDB
+CELERY_RESULT_BACKEND = None
 
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
@@ -254,14 +318,23 @@ CELERY_TASK_ALWAYS_EAGER = False  # Ensure tasks run asynchronously
 CELERY_TASK_EAGER_PROPAGATES = True  # Propagate exceptions in eager mode
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True  # Retry connections during startup
 
-# SQLAlchemy broker settings - these options are not supported by SQLAlchemy transport
+# Redis-specific settings
+# Celery performance settings from environment variables
+try:
+    CELERY_WORKER_CONCURRENCY = int(os.environ.get("CELERY_WORKER_CONCURRENCY", "1"))
+except ValueError as e:
+    raise ImproperlyConfigured("The CELERY_WORKER_CONCURRENCY environment variable must be an integer.") from e
 
-# Database result backend settings
-CELERY_DATABASE_CREATE_TABLES_AT_SETUP = True
-CELERY_DATABASE_ENGINE_OPTIONS = {
-    "echo": DEBUG,  # Log SQL queries in debug mode
-    "pool_pre_ping": True,
-    "pool_recycle": 300,
+try:
+    CELERY_PARAGRAPH_BATCH_SIZE = int(os.environ.get("CELERY_PARAGRAPH_BATCH_SIZE", "3"))
+except ValueError as e:
+    raise ImproperlyConfigured("The CELERY_PARAGRAPH_BATCH_SIZE environment variable must be an integer.") from e
+
+CELERY_REDIS_MAX_CONNECTIONS = 20
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "visibility_timeout": 3600,  # 1 hour
+    "fanout_prefix": True,
+    "fanout_patterns": True,
 }
 
 # Security Headers
@@ -272,12 +345,18 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # Use HTTPS in production
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+    # Don't force HTTPS redirect on Toolforge (proxy handles SSL termination)
+    # SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 31536000  # 1 year
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    
+    # Proxy configuration for Toolforge SSL termination
+    USE_X_FORWARDED_HOST = True
+    USE_X_FORWARDED_PORT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)
@@ -304,3 +383,24 @@ CSP_CONNECT_SRC = (
 CSP_FRAME_ANCESTORS = ("'none'",)  # Prevent clickjacking
 CSP_BASE_URI = ("'self'",)
 CSP_FORM_ACTION = ("'self'",)
+
+# Deployment Configuration
+# These variables are used by deployment scripts and process managers
+# All deployment configuration must be explicitly set via environment variables
+try:
+    DJANGO_WORKERS = int(os.environ.get("DJANGO_WORKERS", "2"))
+except ValueError as e:
+    raise ImproperlyConfigured("The DJANGO_WORKERS environment variable must be an integer.") from e
+
+try:
+    DJANGO_MAX_REQUESTS = int(os.environ.get("DJANGO_MAX_REQUESTS", "1000"))
+except ValueError as e:
+    raise ImproperlyConfigured("The DJANGO_MAX_REQUESTS environment variable must be an integer.") from e
+
+try:
+    CELERY_MAX_TASKS_PER_CHILD = int(os.environ.get("CELERY_MAX_TASKS_PER_CHILD", "100"))
+except ValueError as e:
+    raise ImproperlyConfigured("The CELERY_MAX_TASKS_PER_CHILD environment variable must be an integer.") from e
+
+# Worker pool implementation is set via command line -P flag only (not Celery settings)
+# See management command for pool configuration

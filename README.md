@@ -89,7 +89,7 @@ EditEngine is developed as an open source project with transparency and communit
 
 - **Backend**: Python, Django REST framework
 - **Frontend**: React, TypeScript with responsive design
-- **Background processing**: Celery with PostgreSQL for AI model integration
+- **Background processing**: Celery with Redis for AI model integration
 - **Development**: Modern web stack optimized for Wikipedia editor workflows
 
 ## Getting Started

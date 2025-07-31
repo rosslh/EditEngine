@@ -6,7 +6,7 @@ from django.utils import timezone
 
 
 class EditTask(models.Model):
-    """Model to store edit task information and results in PostgreSQL."""
+    """Model to store edit task information and results in database."""
 
     # Task identification
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

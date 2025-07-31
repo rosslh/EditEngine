@@ -134,12 +134,18 @@ class TestEditTaskService(TestCase):
         self.assertEqual(kwargs["section_title"], "Test Section")
         self.assertNotIn("content", kwargs)
 
-    @patch("services.tasks.edit_task_service.process_edit_task")
-    def test_start_processing_task(self, mock_process_task):
+    @patch("services.tasks.edit_task_service.EncryptionService")
+    @patch("services.tasks.edit_task_service.process_edit_task_batched")
+    def test_start_processing_task(self, mock_process_task, mock_encryption_service):
         """Test starting processing task."""
         mock_celery_task = MagicMock()
         mock_celery_task.id = "celery-task-id"
         mock_process_task.delay.return_value = mock_celery_task
+
+        # Mock encryption service
+        mock_encryption = MagicMock()
+        mock_encryption.encrypt_dict.return_value = "encrypted_config"
+        mock_encryption_service.return_value = mock_encryption
 
         llm_config = {"provider": "google", "api_key": "test_key"}
         task_kwargs = {"edit_task_id": "test-id", "content": "test content"}
@@ -149,9 +155,10 @@ class TestEditTaskService(TestCase):
         )
 
         self.assertEqual(result, "celery-task-id")
+        mock_encryption.encrypt_dict.assert_called_once_with(llm_config)
         mock_process_task.delay.assert_called_once_with(
             editing_mode="copyedit",
-            llm_config=llm_config,
+            encrypted_llm_config="encrypted_config",
             edit_task_id="test-id",
             content="test content",
         )
@@ -171,7 +178,7 @@ class TestEditTaskService(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.celery_task_id, "celery-task-id")
 
-    @patch("services.tasks.edit_task_service.process_edit_task")
+    @patch("services.tasks.edit_task_service.process_edit_task_batched")
     def test_create_and_start_edit_task_success(self, mock_process_task):
         """Test complete workflow for creating and starting edit task."""
         mock_celery_task = MagicMock()
@@ -199,7 +206,7 @@ class TestEditTaskService(TestCase):
         self.assertEqual(task.llm_provider, "google")
         self.assertEqual(task.celery_task_id, "celery-task-id")
 
-    @patch("services.tasks.edit_task_service.process_edit_task")
+    @patch("services.tasks.edit_task_service.process_edit_task_batched")
     def test_create_and_start_edit_task_with_article_title(self, mock_process_task):
         """Test creating and starting edit task with article title."""
         mock_celery_task = MagicMock()
@@ -243,7 +250,7 @@ class TestEditTaskService(TestCase):
             )
         self.assertIn("API key required", str(cm.exception))
 
-    @patch("services.tasks.edit_task_service.process_edit_task")
+    @patch("services.tasks.edit_task_service.process_edit_task_batched")
     def test_create_and_start_edit_task_celery_failure(self, mock_process_task):
         """Test handling Celery task failure."""
         mock_process_task.delay.side_effect = Exception("Celery error")

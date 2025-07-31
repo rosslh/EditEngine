@@ -1244,6 +1244,264 @@ class TestEditOrchestrator:
         assert "ValueError" in results[0].status_details
         assert "Error during task processing" in results[0].status_details
 
+    @pytest.mark.asyncio
+    async def test_orchestrate_edit_structured_batched_success(self):
+        """Test successful batched structured edit orchestration."""
+        # Setup
+        text = "Test paragraph 1\nTest paragraph 2"
+        paragraph_processor = AsyncMock()
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        # Mock document parsing
+        document_items = ["Test paragraph 1", "Test paragraph 2"]
+
+        # Mock task creation
+        tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+
+        # Mock paragraph processing
+        paragraph_processor.process.side_effect = [
+            ParagraphProcessingResult(success=True, content="Edited paragraph 1"),
+            ParagraphProcessingResult(success=True, content="Edited paragraph 2"),
+        ]
+
+        with patch.object(
+            self.orchestrator.document_processor, "process", lambda _: document_items
+        ):
+            with patch.object(
+                self.orchestrator, "_analyze_and_create_edit_tasks"
+            ) as mock_analyze:
+                mock_analyze.return_value = (tasks, [])
+                with patch.object(
+                    self.orchestrator, "_display_summary"
+                ):
+                    # Execute
+                    results = await self.orchestrator.orchestrate_edit_structured_batched(
+                        text, paragraph_processor, enhanced_progress_callback, batch_size
+                    )
+
+        # Verify
+        assert len(results) == 2
+        assert enhanced_progress_callback.called
+
+    @pytest.mark.asyncio
+    async def test_orchestrate_edit_structured_batched_empty_text(self):
+        """Test batched orchestration with empty text."""
+        paragraph_processor = AsyncMock()
+
+        # Execute
+        results = await self.orchestrator.orchestrate_edit_structured_batched(
+            "", paragraph_processor, None, 2
+        )
+
+        # Verify
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_process_and_create_results_batched(self):
+        """Test batched processing and result creation."""
+        # Setup
+        document_items = ["Test paragraph 1", "Test paragraph 2"]
+        edit_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+        skipped_items: List[SkippedItem] = []
+        paragraph_processor = AsyncMock()
+        batch_size = 2
+
+        # Mock paragraph processing
+        paragraph_processor.process.side_effect = [
+            ParagraphProcessingResult(success=True, content="Edited paragraph 1"),
+            ParagraphProcessingResult(success=True, content="Edited paragraph 2"),
+        ]
+
+        with patch.object(
+            self.orchestrator, "_create_paragraph_results"
+        ) as mock_create_results:
+            mock_create_results.return_value = [
+                ParagraphResult(
+                    before="Test paragraph 1",
+                    after="Edited paragraph 1",
+                    status="EDITED",
+                    status_details="Successfully edited",
+                ),
+                ParagraphResult(
+                    before="Test paragraph 2",
+                    after="Edited paragraph 2",
+                    status="EDITED",
+                    status_details="Successfully edited",
+                ),
+            ]
+
+            # Execute
+            results = await self.orchestrator._process_and_create_results_batched(
+                edit_tasks, skipped_items, document_items, paragraph_processor, batch_size
+            )
+
+        # Verify
+        assert len(results) == 2
+        assert mock_create_results.called
+
+    @pytest.mark.asyncio
+    async def test_execute_edit_tasks_batched_success(self):
+        """Test successful batched edit task execution."""
+        # Setup
+        edit_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+        paragraph_processor = AsyncMock()
+        batch_size = 2
+
+        # Mock paragraph processing
+        paragraph_processor.process.side_effect = [
+            ParagraphProcessingResult(success=True, content="Edited paragraph 1"),
+            ParagraphProcessingResult(success=True, content="Edited paragraph 2"),
+        ]
+
+        with patch.object(
+            self.orchestrator, "_process_edit_tasks_batch"
+        ) as mock_process_batch:
+            mock_process_batch.return_value = [
+                EditResult(success=True, content="Edited paragraph 1"),
+                EditResult(success=True, content="Edited paragraph 2"),
+            ]
+
+            # Execute
+            result_map = await self.orchestrator._execute_edit_tasks_batched(
+                edit_tasks, paragraph_processor, batch_size
+            )
+
+        # Verify
+        assert len(result_map) == 2
+        assert 0 in result_map
+        assert 1 in result_map
+        assert result_map[0].success
+        assert result_map[1].success
+
+    @pytest.mark.asyncio
+    async def test_execute_edit_tasks_batched_empty_tasks(self):
+        """Test batched execution with empty task list."""
+        paragraph_processor = AsyncMock()
+
+        # Execute
+        result_map = await self.orchestrator._execute_edit_tasks_batched(
+            [], paragraph_processor, 2
+        )
+
+        # Verify
+        assert result_map == {}
+
+    @pytest.mark.asyncio
+    async def test_execute_edit_tasks_batched_batch_failure(self):
+        """Test batched execution when a batch fails."""
+        # Setup
+        edit_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+        paragraph_processor = AsyncMock()
+        batch_size = 2
+
+        with patch.object(
+            self.orchestrator, "_process_edit_tasks_batch"
+        ) as mock_process_batch:
+            mock_process_batch.side_effect = RuntimeError("Batch processing failed")
+
+            # Execute
+            result_map = await self.orchestrator._execute_edit_tasks_batched(
+                edit_tasks, paragraph_processor, batch_size
+            )
+
+        # Verify - all tasks should be marked as failed
+        assert len(result_map) == 2
+        assert not result_map[0].success
+        assert not result_map[1].success
+        assert isinstance(result_map[0].error, RuntimeError)
+        assert isinstance(result_map[1].error, RuntimeError)
+
+    @pytest.mark.asyncio
+    async def test_execute_edit_tasks_batched_exception_handling(self):
+        """Test batched execution exception handling."""
+        # Setup
+        edit_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 1),
+        ]
+        paragraph_processor = AsyncMock()
+        batch_size = 1
+
+        with patch("asyncio.gather", side_effect=Exception("Gather failed")):
+            # Execute
+            result_map = await self.orchestrator._execute_edit_tasks_batched(
+                edit_tasks, paragraph_processor, batch_size
+            )
+
+        # Verify - all tasks should be marked as failed
+        assert len(result_map) == 1
+        assert not result_map[0].success
+        assert isinstance(result_map[0].error, Exception)
+
+    @pytest.mark.asyncio
+    async def test_process_edit_tasks_batch_success(self):
+        """Test successful processing of a single batch."""
+        # Setup
+        batch_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+        paragraph_processor = AsyncMock()
+
+        with patch.object(
+            self.orchestrator, "_process_single_task"
+        ) as mock_process_single:
+            mock_process_single.side_effect = [
+                EditResult(success=True, content="Edited paragraph 1"),
+                EditResult(success=True, content="Edited paragraph 2"),
+            ]
+
+            # Execute
+            results = await self.orchestrator._process_edit_tasks_batch(
+                batch_tasks, paragraph_processor
+            )
+
+        # Verify
+        assert len(results) == 2
+        assert results[0].success
+        assert results[1].success
+
+    @pytest.mark.asyncio
+    async def test_process_edit_tasks_batch_with_exceptions(self):
+        """Test batch processing with some tasks throwing exceptions."""
+        # Setup
+        batch_tasks = [
+            EditTask("Test paragraph 1", 0, 0, True, 2),
+            EditTask("Test paragraph 2", 1, 1, False, 2),
+        ]
+        paragraph_processor = AsyncMock()
+
+        with patch.object(
+            self.orchestrator, "_process_single_task"
+        ) as mock_process_single:
+            mock_process_single.side_effect = [
+                EditResult(success=True, content="Edited paragraph 1"),
+                RuntimeError("Task failed"),
+            ]
+
+            # Execute
+            results = await self.orchestrator._process_edit_tasks_batch(
+                batch_tasks, paragraph_processor
+            )
+
+        # Verify
+        assert len(results) == 2
+        assert results[0].success
+        assert not results[1].success
+        assert isinstance(results[1].error, RuntimeError)
+
 
 class TestEditTask:
     """Test cases for EditTask."""

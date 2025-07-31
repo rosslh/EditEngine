@@ -14,7 +14,7 @@ if not settings.configured:
     django.setup()
 
 from data.models.edit_task import EditTask
-from services.tasks.edit_tasks import process_edit_task
+from services.tasks.edit_tasks import process_edit_task, process_edit_task_batched
 
 
 @dataclass
@@ -52,12 +52,18 @@ def test_process_edit_task_article_section(monkeypatch):
     monkeypatch.setattr(
         "services.tasks.edit_tasks.WikiEditor", lambda **kwargs: mock_editor
     )
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "google"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
     monkeypatch.setattr(
         "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
     )
     result = process_edit_task(
         editing_mode="brevity",
-        llm_config={"provider": "google"},
+        encrypted_llm_config="encrypted_config",
         edit_task_id=str(edit_task.id),
         article_title="Test",
         section_title="Intro",
@@ -90,12 +96,18 @@ def test_process_edit_task_handles_exception(monkeypatch):
     monkeypatch.setattr(
         "services.tasks.edit_tasks.WikiEditor", lambda **kwargs: mock_editor
     )
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "openai"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
     monkeypatch.setattr(
         "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
     )
     result = process_edit_task(
         editing_mode="copyedit",
-        llm_config={"provider": "openai"},
+        encrypted_llm_config="encrypted_config",
         edit_task_id=str(edit_task.id),
         article_title="Test Article",
         section_title="Test Section",
@@ -195,6 +207,12 @@ def test_process_edit_task_value_error(monkeypatch):
     edit_task1 = EditTask.objects.create(editing_mode="brevity", llm_provider="google")
     edit_task2 = EditTask.objects.create(editing_mode="brevity", llm_provider="google")
 
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "google"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
     monkeypatch.setattr(
         "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
     )
@@ -203,14 +221,14 @@ def test_process_edit_task_value_error(monkeypatch):
     )
     result1 = process_edit_task(
         editing_mode="brevity",
-        llm_config={"provider": "google"},
+        encrypted_llm_config="encrypted_config",
         edit_task_id=str(edit_task1.id),
         article_title=None,
         section_title="Intro",
     )
     result2 = process_edit_task(
         editing_mode="brevity",
-        llm_config={"provider": "google"},
+        encrypted_llm_config="encrypted_config",
         edit_task_id=str(edit_task2.id),
         article_title="Test",
         section_title=None,
@@ -238,12 +256,18 @@ def test_process_edit_task_nonexistent_edit_task(monkeypatch):
     # Test with non-existent EditTask ID
     fake_uuid = str(uuid.uuid4())
 
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "openai"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
     monkeypatch.setattr(
         "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
     )
     result = process_edit_task(
         editing_mode="copyedit",
-        llm_config={"provider": "openai"},
+        encrypted_llm_config="encrypted_config",
         edit_task_id=fake_uuid,
         article_title="Test Article",
         section_title="Test Section",
@@ -283,3 +307,206 @@ def test_run_async_safely_with_event_loop(monkeypatch):
     assert result == "test_result"
     mock_executor.submit.assert_called_once()
     mock_future.result.assert_called_once()
+
+
+@pytest.mark.django_db
+def test_process_edit_task_batched_article_section(monkeypatch):
+    """Test the batched version of process_edit_task."""
+    # Create a test EditTask
+    edit_task = EditTask.objects.create(
+        editing_mode="brevity",
+        article_title="Test",
+        section_title="Intro",
+        llm_provider="google",
+    )
+
+    async def mock_edit_article_section_structured_batched(
+        article_title, section_title, language="en", progress_callback=None, batch_size=5
+    ):
+        return [ParagraphResult(before="baz", after="qux", status="CHANGED")]
+
+    mock_editor = MagicMock()
+    mock_editor.edit_article_section_structured_batched = mock_edit_article_section_structured_batched
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.WikiEditor", lambda **kwargs: mock_editor
+    )
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "google"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
+    )
+
+    # Mock the update_progress_enhanced method to avoid database calls
+    monkeypatch.setattr(edit_task, "update_progress_enhanced", MagicMock())
+
+    # Test the batched version
+    result = process_edit_task_batched(
+        editing_mode="brevity",
+        encrypted_llm_config="encrypted_config",
+        edit_task_id=str(edit_task.id),
+        batch_size=5,
+        article_title="Test",
+        section_title="Intro",
+    )
+
+    assert isinstance(result, dict)
+    assert "paragraphs" in result
+    assert result["paragraphs"][0]["after"] == "qux"
+    assert result["article_title"] == "Test"
+    assert result["section_title"] == "Intro"
+    assert result["article_url"].endswith("/Test")
+
+    # Verify the EditTask was updated
+    edit_task.refresh_from_db()
+    assert edit_task.status == "SUCCESS"
+    assert edit_task.result["paragraphs"][0]["after"] == "qux"
+
+
+@pytest.mark.django_db
+def test_process_edit_task_batched_handles_exception(monkeypatch):
+    """Test batched task handles exceptions properly."""
+    # Create a test EditTask
+    edit_task = EditTask.objects.create(
+        editing_mode="copyedit",
+        article_title="Test Article",
+        section_title="Test Section",
+        llm_provider="openai",
+    )
+
+    mock_editor = MagicMock()
+    mock_editor.edit_article_section_structured_batched.side_effect = RuntimeError("batched fail")
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.WikiEditor", lambda **kwargs: mock_editor
+    )
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "openai"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
+    )
+
+    result = process_edit_task_batched(
+        editing_mode="copyedit",
+        encrypted_llm_config="encrypted_config",
+        edit_task_id=str(edit_task.id),
+        batch_size=3,
+        article_title="Test Article",
+        section_title="Test Section",
+    )
+
+    assert "error" in result
+    # Error is sanitized so we just check it's an error
+
+    # Verify the EditTask was marked as failed
+    edit_task.refresh_from_db()
+    assert edit_task.status == "FAILURE"
+
+
+@pytest.mark.django_db
+def test_process_edit_task_batched_nonexistent_task(monkeypatch):
+    """Test batched task with nonexistent EditTask ID."""
+    fake_uuid = str(uuid.uuid4())
+
+    result = process_edit_task_batched(
+        editing_mode="brevity",
+        encrypted_llm_config="encrypted_config",
+        edit_task_id=fake_uuid,
+        batch_size=5,
+        article_title="Test",
+        section_title="Intro",
+    )
+
+    assert "error" in result
+    assert f"EditTask with id {fake_uuid} not found" in result["error"]
+
+
+@pytest.mark.django_db
+def test_process_edit_task_batched_invalid_arguments(monkeypatch):
+    """Test batched task with invalid article/section arguments."""
+    # Create a test EditTask
+    edit_task = EditTask.objects.create(
+        editing_mode="brevity",
+        article_title="Test",
+        section_title="Intro",
+        llm_provider="google",
+    )
+
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "google"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
+    )
+
+    # Test with invalid article_title type
+    result = process_edit_task_batched(
+        editing_mode="brevity",
+        encrypted_llm_config="encrypted_config",
+        edit_task_id=str(edit_task.id),
+        batch_size=5,
+        article_title=123,  # Invalid type
+        section_title="Intro",
+    )
+
+    assert "error" in result
+    assert "article_title and section_title must be provided as strings" in result["error"]
+
+
+@pytest.mark.django_db
+def test_process_edit_task_enhanced_progress_callback(monkeypatch):
+    """Test that the enhanced progress callback is created correctly."""
+    # Create a test EditTask
+    edit_task = EditTask.objects.create(
+        editing_mode="brevity",
+        article_title="Test",
+        section_title="Intro",
+        llm_provider="google",
+    )
+
+    async def mock_edit_article_section_structured(
+        article_title, section_title, language="en", progress_callback=None
+    ):
+        # Just check that progress_callback is not None (it was created)
+        assert progress_callback is not None
+        return [ParagraphResult(before="baz", after="qux", status="CHANGED")]
+
+    mock_editor = MagicMock()
+    mock_editor.edit_article_section_structured = mock_edit_article_section_structured
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.WikiEditor", lambda **kwargs: mock_editor
+    )
+
+    # Mock EncryptionService
+    mock_encryption_service = MagicMock()
+    mock_encryption_service.decrypt_dict.return_value = {"provider": "google"}
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks.EncryptionService", lambda: mock_encryption_service
+    )
+    monkeypatch.setattr(
+        "services.tasks.edit_tasks._initialize_llm", lambda config: MagicMock()
+    )
+
+    # Mock the update_progress_enhanced method to avoid database calls
+    monkeypatch.setattr(edit_task, "update_progress_enhanced", MagicMock())
+
+    result = process_edit_task(
+        editing_mode="brevity",
+        encrypted_llm_config="encrypted_config",
+        edit_task_id=str(edit_task.id),
+        article_title="Test",
+        section_title="Intro",
+    )
+
+    assert isinstance(result, dict)
+    assert "paragraphs" in result
+

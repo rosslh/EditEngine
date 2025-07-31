@@ -20,11 +20,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    manifest: true,
+    manifest: 'manifest.json',
     rollupOptions: {
-      input: {
-        main: 'src/main.tsx',
-      },
+      input: 'src/main.tsx',
     },
   },
   server: {

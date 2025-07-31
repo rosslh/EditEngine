@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from django.conf import settings
 from django.contrib import admin
 from django.contrib.staticfiles import views as staticfiles_views
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
@@ -41,14 +40,14 @@ urlpatterns = [
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
-if settings.DEBUG:
-    urlpatterns += staticfiles_urlpatterns()
+# Always serve static files for local development/testing
+urlpatterns += staticfiles_urlpatterns()
 
-    urlpatterns.append(
-        re_path(
-            r"^(?!api/)(?P<path>.*\.(?:png|svg|jpg|jpeg|gif|ico|js|css))$",
-            staticfiles_views.serve,
-        )
+urlpatterns.append(
+    re_path(
+        r"^(?!api/)(?P<path>.*\.(?:png|svg|jpg|jpeg|gif|ico|js|css))$",
+        staticfiles_views.serve,
     )
+)
 
 urlpatterns.append(re_path(r"^(?!api/).*$", index_view, name="index"))

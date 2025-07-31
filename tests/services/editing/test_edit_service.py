@@ -454,3 +454,245 @@ class TestListMarkerValidator:
             original, edited, 0, 1
         )
         assert result.startswith("*")
+
+
+class TestWikiEditorBatched:
+    """Test cases for WikiEditor batched methods."""
+
+    @pytest.fixture
+    def mock_llm(self):
+        """Create a mock LLM for testing."""
+        llm = AsyncMock()
+        llm.ainvoke = AsyncMock(return_value="Edited content")
+        return llm
+
+    @pytest.fixture
+    def mock_dependencies(self):
+        """Create mock dependencies for WikiEditor."""
+        deps = {
+            "document_processor": Mock(),
+            "content_classifier": Mock(),
+            "reversion_tracker": Mock(),
+            "reference_handler": Mock(),
+        }
+        return deps
+
+    @pytest.fixture
+    def wiki_editor(self, mock_llm, mock_dependencies):
+        """Create a WikiEditor instance for testing."""
+        return WikiEditor(
+            llm=mock_llm, editing_mode="copyedit", verbose=False, **mock_dependencies
+        )
+
+    @pytest.mark.asyncio
+    async def test_edit_wikitext_structured_batched_success(self, wiki_editor):
+        """Test successful batched structured edit of wikitext."""
+        # Setup
+        text = "Test paragraph 1\nTest paragraph 2"
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        # Mock the orchestrator's batched method
+        expected_results = [
+            ParagraphResult(
+                before="Test paragraph 1",
+                after="Edited paragraph 1",
+                status="EDITED",
+                status_details="Successfully edited",
+            ),
+            ParagraphResult(
+                before="Test paragraph 2",
+                after="Edited paragraph 2",
+                status="EDITED",
+                status_details="Successfully edited",
+            ),
+        ]
+
+        with patch.object(
+            wiki_editor.orchestrator, "orchestrate_edit_structured_batched"
+        ) as mock_orchestrate:
+            mock_orchestrate.return_value = expected_results
+
+            # Execute
+            results = await wiki_editor.edit_wikitext_structured_batched(
+                text, enhanced_progress_callback, batch_size
+            )
+
+        # Verify
+        assert len(results) == 2
+        assert results == expected_results
+        mock_orchestrate.assert_called_once_with(
+            text, wiki_editor.paragraph_processor, enhanced_progress_callback, batch_size
+        )
+
+    @pytest.mark.asyncio
+    async def test_edit_wikitext_structured_batched_empty_text(self, wiki_editor):
+        """Test batched structured edit with empty text."""
+        # Execute
+        results = await wiki_editor.edit_wikitext_structured_batched("", None, 2)
+
+        # Verify
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_edit_wikitext_structured_batched_exception_handling(self, wiki_editor):
+        """Test batched structured edit exception handling."""
+        # Setup
+        text = "Test paragraph"
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        with patch.object(
+            wiki_editor.orchestrator, "orchestrate_edit_structured_batched"
+        ) as mock_orchestrate:
+            mock_orchestrate.side_effect = RuntimeError("Processing failed")
+
+            with patch.object(
+                wiki_editor.document_processor, "process"
+            ) as mock_process:
+                mock_process.return_value = ["Test paragraph"]
+
+                # Execute
+                results = await wiki_editor.edit_wikitext_structured_batched(
+                    text, enhanced_progress_callback, batch_size
+                )
+
+        # Verify error handling
+        assert len(results) == 1
+        assert results[0].status == "ERRORED"
+        # Error is sanitized so we just check it contains error message
+
+    @pytest.mark.asyncio
+    async def test_edit_wikitext_structured_batched_large_document_error(self, wiki_editor):
+        """Test batched structured edit with large document error handling."""
+        # Setup
+        text = "Test paragraph"
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        with patch.object(
+            wiki_editor.orchestrator, "orchestrate_edit_structured_batched"
+        ) as mock_orchestrate:
+            mock_orchestrate.side_effect = RuntimeError("Processing failed")
+
+            # Mock large document (>100 items)
+            large_document = ["paragraph"] * 101
+            with patch.object(
+                wiki_editor.document_processor, "process"
+            ) as mock_process:
+                mock_process.return_value = large_document
+
+                # Execute
+                results = await wiki_editor.edit_wikitext_structured_batched(
+                    text, enhanced_progress_callback, batch_size
+                )
+
+        # Verify large document error handling
+        assert len(results) == 1
+        assert results[0].status == "ERRORED"
+        assert "Batched processing failed for large document (101 items)" in results[0].status_details
+
+    @pytest.mark.asyncio
+    async def test_edit_wikitext_structured_batched_fallback_error(self, wiki_editor):
+        """Test batched structured edit with fallback error handling."""
+        # Setup
+        text = "Test paragraph"
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        with patch.object(
+            wiki_editor.orchestrator, "orchestrate_edit_structured_batched"
+        ) as mock_orchestrate:
+            mock_orchestrate.side_effect = RuntimeError("Primary error")
+
+            with patch.object(
+                wiki_editor.document_processor, "process"
+            ) as mock_process:
+                mock_process.side_effect = RuntimeError("Fallback error")
+
+                # Execute
+                results = await wiki_editor.edit_wikitext_structured_batched(
+                    text, enhanced_progress_callback, batch_size
+                )
+
+        # Verify fallback error handling
+        assert len(results) == 1
+        assert results[0].status == "ERRORED"
+        assert "Critical batched processing failure" in results[0].status_details
+        # Error messages are sanitized so we just check the structure
+
+    @pytest.mark.asyncio
+    async def test_edit_article_section_structured_batched_success(self, wiki_editor):
+        """Test successful batched structured edit of article section."""
+        # Setup
+        article_title = "Test Article"
+        section_title = "Test Section"
+        language = "en"
+        enhanced_progress_callback = Mock()
+        batch_size = 2
+
+        expected_results = [
+            ParagraphResult(
+                before="Test content",
+                after="Edited content",
+                status="EDITED",
+                status_details="Successfully edited",
+            ),
+        ]
+
+        with patch.object(
+            wiki_editor, "edit_wikitext_structured_batched"
+        ) as mock_edit:
+            mock_edit.return_value = expected_results
+
+            with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
+                mock_api = mock_api_class.return_value
+                mock_api.get_article_wikitext = AsyncMock(return_value="Full article content")
+
+                with patch("services.utils.wiki_utils.extract_section_content") as mock_extract:
+                    mock_extract.return_value = "Section content"
+
+                    # Execute
+                    results = await wiki_editor.edit_article_section_structured_batched(
+                        article_title, section_title, language, enhanced_progress_callback, batch_size
+                    )
+
+        # Verify
+        assert results == expected_results
+        mock_edit.assert_called_once_with("Section content", enhanced_progress_callback, batch_size)
+
+    @pytest.mark.asyncio
+    async def test_edit_article_section_structured_batched_empty_title(self, wiki_editor):
+        """Test batched structured edit with empty article title."""
+        with pytest.raises(ValueError, match="Article title cannot be empty"):
+            await wiki_editor.edit_article_section_structured_batched(
+                "", "Section", "en", None, 2
+            )
+
+    @pytest.mark.asyncio
+    async def test_edit_article_section_structured_batched_empty_section(self, wiki_editor):
+        """Test batched structured edit with empty section title."""
+        with pytest.raises(ValueError, match="Section title cannot be empty"):
+            await wiki_editor.edit_article_section_structured_batched(
+                "Article", "", "en", None, 2
+            )
+
+    @pytest.mark.asyncio
+    async def test_edit_article_section_structured_batched_section_not_found(self, wiki_editor):
+        """Test batched structured edit when section is not found."""
+        # Setup
+        article_title = "Test Article"
+        section_title = "Nonexistent Section"
+
+        with patch("services.editing.edit_service.WikipediaAPI") as mock_api_class:
+            mock_api = mock_api_class.return_value
+            mock_api.get_article_wikitext = AsyncMock(return_value="Full article content")
+
+            with patch("services.utils.wiki_utils.extract_section_content") as mock_extract:
+                mock_extract.return_value = None
+
+                # Execute & Verify
+                with pytest.raises(ValueError, match="Section 'Nonexistent Section' not found"):
+                    await wiki_editor.edit_article_section_structured_batched(
+                        article_title, section_title, "en", None, 2
+                    )
