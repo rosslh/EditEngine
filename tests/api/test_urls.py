@@ -19,18 +19,18 @@ class TestDjangoUrls(TestCase):
         """Test that admin URL resolves correctly."""
         from EditEngine.urls import urlpatterns
 
-        self.assertEqual(len(urlpatterns), 7)
+        self.assertEqual(len(urlpatterns), 8)
 
-        # Test admin URL pattern
-        admin_url = urlpatterns[0]
+        # Test admin URL pattern (health check is now at index 0)
+        admin_url = urlpatterns[1]
         self.assertEqual(admin_url.pattern._route, "admin/")
 
     def test_edit_urls_inclusion(self):
         """Test that edit app URLs are included."""
         from EditEngine.urls import urlpatterns
 
-        # Test include URL pattern
-        include_url = urlpatterns[1]
+        # Test include URL pattern (api is now at index 2)
+        include_url = urlpatterns[2]
         self.assertEqual(include_url.pattern._route, "api/")
 
     def test_edit_url_resolution(self):

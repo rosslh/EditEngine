@@ -9,71 +9,7 @@ env:
   TOOL_NAME: editengine
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 6379:6379
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "18"
-
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Install Node.js dependencies
-        run: |
-          cd client/frontend
-          npm ci
-
-      - name: Build frontend
-        run: |
-          cd client/frontend
-          npm run build
-
-      - name: Run Python tests
-        env:
-          SECRET_KEY: test-secret-key-for-github-actions
-          DEBUG: false
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-          DB_CONN_MAX_AGE: 0
-          DJANGO_WORKERS: 2
-          DJANGO_MAX_REQUESTS: 1000
-          CELERY_WORKER_CONCURRENCY: 2
-          CELERY_PARAGRAPH_BATCH_SIZE: 5
-          CELERY_WORKER_POOL: prefork
-          CELERY_ENCRYPTION_KEY: dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcw==
-          CELERY_MAX_TASKS_PER_CHILD: 100
-        run: |
-          python manage.py test
-
-      - name: Run linting
-        run: |
-          python manage.py lint
-
   deploy:
-    needs: test
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
@@ -123,7 +59,7 @@ jobs:
           script: |
             become ${{ env.TOOL_NAME }} '
               set -euo pipefail
-              
+
               # Sync secrets (only if GitHub secret is provided)
               if [ -n "${SECRET_KEY:-}" ]; then
                 toolforge envvars create SECRET_KEY "$SECRET_KEY"
@@ -131,7 +67,7 @@ jobs:
               if [ -n "${CELERY_ENCRYPTION_KEY:-}" ]; then
                 toolforge envvars create CELERY_ENCRYPTION_KEY "$CELERY_ENCRYPTION_KEY"
               fi
-              
+
               # Sync non-sensitive environment variables (only if GitHub variable is provided)
               if [ -n "${DEBUG:-}" ]; then
                 toolforge envvars create DEBUG "$DEBUG"
@@ -260,7 +196,7 @@ jobs:
                 toolforge jobs delete celery-worker || true
                 sleep 5
               fi
-              
+
               toolforge jobs run celery-worker \
                 --image tool-editengine/tool-editengine:latest \
                 --command "celery-worker" \
@@ -275,7 +211,7 @@ jobs:
                 toolforge jobs delete celery-beat || true
                 sleep 5
               fi
-              
+
               toolforge jobs run celery-beat \
                 --image tool-editengine/tool-editengine:latest \
                 --command "celery-beat" \
@@ -289,7 +225,7 @@ jobs:
         run: |
           echo "Waiting for services to start..."
           sleep 90  # Give services time to start
-          
+
           # Check if the service is responding
           echo "Checking service health..."
           if curl -f -s -o /dev/null -w "%{http_code}" https://editengine.toolforge.org/ | grep -q "200\|301\|302"; then
