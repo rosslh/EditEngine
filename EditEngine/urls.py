@@ -18,6 +18,7 @@ Including another URLconf
 from django.contrib import admin
 from django.contrib.staticfiles import views as staticfiles_views
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.http import HttpResponse
 from django.urls import include, path, re_path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -27,7 +28,12 @@ from drf_spectacular.views import (
 
 from client.views import index_view
 
+
+def health_check(request):
+    return HttpResponse("OK", content_type="text/plain")
+
 urlpatterns = [
+    path("health/", health_check, name="health"),
     path("admin/", admin.site.urls),
     path("api/", include("api.urls")),
     # API Documentation
@@ -43,6 +49,7 @@ urlpatterns = [
 # Always serve static files for local development/testing
 urlpatterns += staticfiles_urlpatterns()
 
+# Static file serving for assets not handled by WhiteNoise
 urlpatterns.append(
     re_path(
         r"^(?!api/)(?P<path>.*\.(?:png|svg|jpg|jpeg|gif|ico|js|css))$",
@@ -50,4 +57,10 @@ urlpatterns.append(
     )
 )
 
-urlpatterns.append(re_path(r"^(?!api/).*$", index_view, name="index"))
+# Add specific routes for the SPA
+# Note: Using re_path with explicit pattern to avoid redirect issues on Toolforge
+urlpatterns.extend([
+    path('', index_view, name='home'),  # Root path
+    # Only catch paths that don't start with api/, admin/, health/, or static files
+    re_path(r'^(?!api/|admin/|health/|static/).*$', index_view, name='index'),
+])

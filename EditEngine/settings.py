@@ -54,6 +54,7 @@ if not SECRET_KEY:
 
 ALLOWED_HOSTS = [
     "editengine.toolforge.org",
+    ".toolforge.org",  # Add wildcard for all toolforge subdomains
     "localhost",
     "127.0.0.1",
     "0.0.0.0",
@@ -64,6 +65,12 @@ CORS_ALLOWED_ORIGINS = [
     "https://editengine.toolforge.org",
     "http://localhost:5173",  # Vite dev server
     "http://localhost:8000",  # Django dev server
+]
+
+# CSRF trusted origins for Django 4.0+ behind proxy
+CSRF_TRUSTED_ORIGINS = [
+    "https://editengine.toolforge.org",
+    "https://*.toolforge.org",
 ]
 
 # Additional CORS settings for production
@@ -231,10 +238,24 @@ STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Static files storage with WhiteNoise for efficient serving
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+# Using modern STORAGES configuration (Django 4.2+)
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
-# Django-Vite settings
+# WhiteNoise configuration for Toolforge
+WHITENOISE_AUTOREFRESH = False  # Important for production
+WHITENOISE_COMPRESS_OFFLINE = True
+# Don't store the original (un-hashed filename) version of static files, to reduce slug size
+WHITENOISE_KEEP_ONLY_HASHED_FILES = True
+
+# Django-Vite settings for version 2.1.3
 VITE_APP_DIR = os.path.join(BASE_DIR, "client", "frontend")
+
+# Required by django-vite 2.x
+DJANGO_VITE_ASSETS_PATH = os.path.join(VITE_APP_DIR, "dist")
 
 DJANGO_VITE = {
     "default": {
@@ -346,17 +367,27 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # Use HTTPS in production
 if not DEBUG:
     # Don't force HTTPS redirect on Toolforge (proxy handles SSL termination)
-    # SECURE_SSL_REDIRECT = True
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    
+    SECURE_SSL_REDIRECT = False
+    # Disable secure cookies on Toolforge - the proxy handles SSL but Django may not detect it correctly
+    # SESSION_COOKIE_SECURE = True
+    # CSRF_COOKIE_SECURE = True
+    # Disable HSTS on Toolforge - let the proxy handle security headers
+    # SECURE_HSTS_SECONDS = 31536000  # 1 year
+    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    # SECURE_HSTS_PRELOAD = True
+
     # Proxy configuration for Toolforge SSL termination
-    USE_X_FORWARDED_HOST = True
-    USE_X_FORWARDED_PORT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    # Commenting out these settings to fix infinite redirect on Toolforge
+    # USE_X_FORWARDED_HOST = True
+    # USE_X_FORWARDED_PORT = True
+    # USE_X_FORWARDED_FOR = True  # Additional forwarding behavior for Toolforge
+    # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Toolforge-specific settings
+# FORCE_SCRIPT_NAME = ''  # Commented out - was causing redirect issues
+
+# Note: Removed APPEND_SLASH = False to use Django's default (True)
+# The default behavior should work correctly now that proxy settings are fixed
 
 # Content Security Policy
 CSP_DEFAULT_SRC = ("'self'",)
